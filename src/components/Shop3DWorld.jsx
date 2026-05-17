@@ -267,8 +267,8 @@ export default function Shop3DWorld({
         {/* 3D Neon Sign Upgrade */}
         {neonSignTier > 0 && <NeonSign3D tier={neonSignTier} />}
 
-        {/* 3D Marketing Campaign Poster */}
-        {marketingActive && <MarketingPoster3D />}
+        {/* 3D Marketing Campaign Poster (A-frame stand on the counter) */}
+        {marketingActive && <MarketingPoster3D position={[0.7, 1.15, 0.5]} />}
 
         {/* Shopkeeper Stevie 🧑‍🍳 */}
         <Shopkeeper3D 

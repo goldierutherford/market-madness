@@ -57,7 +57,8 @@ export default function Customer3D({
   customerData, 
   isVIP, 
   reaction: propReaction, 
-  itemName: propItemName 
+  itemName: propItemName,
+  isStationary = false
 }) {
   const groupRef = useRef();
   const innerGroupRef = useRef();
@@ -70,6 +71,11 @@ export default function Customer3D({
   // Phase 3 (Turn & Exit): 3.0s to 6.0s -> Bubble is visible
   // Phase 4 (Off-stage): 6.0s+ -> Bubble is hidden
   useEffect(() => {
+    if (isStationary) {
+      setShowBubble(true);
+      return;
+    }
+
     const showTimeout = setTimeout(() => {
       setShowBubble(true);
     }, 1500); // Trigger when they arrive at the counter
@@ -82,7 +88,7 @@ export default function Customer3D({
       clearTimeout(showTimeout);
       clearTimeout(hideTimeout);
     };
-  }, []);
+  }, [isStationary]);
 
   // Determine skin tone and hair colour deterministically based on customer data or VIP status
   const customerId = customerData?.id || "default";
@@ -119,6 +125,15 @@ export default function Customer3D({
 
   useFrame((state, delta) => {
     if (!groupRef.current) return;
+
+    if (isStationary) {
+      // Gentle stand-breathing bob for stationary background customer
+      const currentBob = Math.sin(state.clock.elapsedTime * 3) * 0.03;
+      if (innerGroupRef.current) {
+        innerGroupRef.current.position.y = currentBob;
+      }
+      return;
+    }
 
     const elapsed = (Date.now() - startTime) / 1000; // time in seconds
     let currentX = entrance.x;

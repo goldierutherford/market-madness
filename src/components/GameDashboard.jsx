@@ -273,7 +273,7 @@ export default function GameDashboard({
 
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-900/80 border border-white/5 text-[10px]">
             <Calendar className="w-3.5 h-3.5 text-indigo-400" />
-            <span className="font-bold font-mono">Day {currentDay}</span>
+            <span className="font-bold font-mono">Day {endOfDayReport ? endOfDayReport.daySimulated : currentDay}</span>
           </div>
 
           {retainedEarnings > 0 && (

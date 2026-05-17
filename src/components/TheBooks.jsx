@@ -276,7 +276,7 @@ export default function TheBooks({
                       </p>
                     </div>
                     <span className="text-xs font-mono font-extrabold text-emerald-400 bg-emerald-950/55 px-2.5 py-1 rounded-lg border border-emerald-500/20 font-bold">
-                      $15
+                      $10
                     </span>
                   </div>
                   <p className="text-xs text-slate-300 mt-3 font-medium leading-relaxed">

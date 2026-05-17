@@ -550,7 +550,7 @@ export function useGameState() {
   const processWeeklyDeposit = useCallback((floatAmount) => {
     setGameState((prev) => {
       const balanceToDeposit = prev.bankBalance - floatAmount;
-      const depositAmount = balanceToDeposit > 0 ? balanceToDeposit : 0;
+      const depositAmount = balanceToDeposit; // can be negative, which acts as a withdrawal
 
       const updatedState = {
         ...prev,
@@ -597,16 +597,16 @@ export function useGameState() {
   // Launch Flyer Campaign
   const launchMarketing = useCallback(() => {
     setGameState((prev) => {
-      if (prev.bankBalance < 15) {
+      if (prev.bankBalance < 10) {
         alert("Insufficient funds to launch the Flyer Campaign!");
         return prev;
       }
       const updatedState = {
         ...prev,
-        bankBalance: Number((prev.bankBalance - 15).toFixed(2))
+        bankBalance: Number((prev.bankBalance - 10).toFixed(2))
       };
       setMarketingActive(true);
-      setMarketingSpendToday(15);
+      setMarketingSpendToday(10);
       if (user) {
         saveGameToCloud(updatedState, user, neonSignTier, true);
       }

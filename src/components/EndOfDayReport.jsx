@@ -298,7 +298,7 @@ export default function EndOfDayReport({ report, gameState, onClose }) {
         {/* Next Day Trigger Action */}
         <div className="report-footer-actions">
           <button onClick={onClose} className="btn btn-close-modal">
-            <span>Progress to Day {daySimulated + 1}</span>
+            <span>{daySimulated % 7 === 0 ? "Go to Bank" : `Progress to Day ${daySimulated + 1}`}</span>
             <ChevronRight className="btn-icon" />
           </button>
         </div>
