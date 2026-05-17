@@ -1,12 +1,32 @@
-import React, { useRef, useState, useMemo } from "react";
+import React, { useRef, useState, useMemo, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Decal, useTexture, Html } from "@react-three/drei";
 import { generateFaceTexture } from "../utils/faceGenerator";
+import { generateCustomerPhrase } from "../utils/phraseGenerator";
 
 // Linear interpolation utility
 function lerp(start, end, amt) {
   return (1 - amt) * start + amt * end;
 }
+
+// Static lookup mapping product IDs to their customer-facing names
+const ITEM_NAMES = {
+  apple: "Crisp Gala Apple",
+  cucumber: "Organic Cucumber",
+  bread: "Artisan Sourdough Bread",
+  watermelon: "Sweet Watermelon Slice",
+  toycar: "Miniature Toy Car",
+  cheese: "Mature Cheddar Cheese",
+  flowers: "Spring Flower Bouquet",
+  coffee: "Organic Coffee Beans",
+  book: "Classic Fiction Book",
+  plant: "Potted House Plant",
+  headphones: "Wireless Headphones",
+  watch: "Smart Fitness Watch",
+  sneakers: "Premium Running Sneakers",
+  sunglasses: "Designer Sunglasses",
+  laptop: "Sleek Ultrabook Laptop"
+};
 
 // A palette of warm, varied skin tones for a cartoony chibi representation
 const SKIN_TONES = [
@@ -33,16 +53,64 @@ useTexture.preload(generateFaceTexture("acceptable"));
 useTexture.preload(generateFaceTexture("expensive"));
 useTexture.preload(generateFaceTexture("shopkeeper"));
 
-export default function Customer3D({ customerData, isVIP }) {
+export default function Customer3D({ 
+  customerData, 
+  isVIP, 
+  reaction: propReaction, 
+  itemName: propItemName 
+}) {
   const groupRef = useRef();
   const innerGroupRef = useRef();
   const [startTime] = useState(() => Date.now());
+  const [showBubble, setShowBubble] = useState(false);
+
+  // Animation Sync: Toggle speech bubble strictly during Phase 2 and Phase 3 of their animation cycle
+  // Phase 1 (Walk In): 0.0s to 1.5s -> Bubble is hidden
+  // Phase 2 (Transaction): 1.5s to 3.0s -> Bubble is visible
+  // Phase 3 (Turn & Exit): 3.0s to 6.0s -> Bubble is visible
+  // Phase 4 (Off-stage): 6.0s+ -> Bubble is hidden
+  useEffect(() => {
+    const showTimeout = setTimeout(() => {
+      setShowBubble(true);
+    }, 1500); // Trigger when they arrive at the counter
+
+    const hideTimeout = setTimeout(() => {
+      setShowBubble(false);
+    }, 6000); // Trigger when they completely exit off-stage
+
+    return () => {
+      clearTimeout(showTimeout);
+      clearTimeout(hideTimeout);
+    };
+  }, []);
 
   // Determine skin tone and hair colour deterministically based on customer data or VIP status
   const customerId = customerData?.id || "default";
   const charCodeSum = customerId.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0);
   const skinTone = SKIN_TONES[charCodeSum % SKIN_TONES.length];
   const hairColour = HAIR_COLOURS[(charCodeSum + 2) % HAIR_COLOURS.length];
+
+  // Resolve item name and reaction state dynamically, supporting both direct props and customerData structures
+  const resolvedItemName = useMemo(() => {
+    if (propItemName) return propItemName;
+    if (customerData?.itemId) {
+      return ITEM_NAMES[customerData.itemId] || "goods";
+    }
+    return "goods";
+  }, [propItemName, customerData?.itemId]);
+
+  const finalReaction = useMemo(() => {
+    if (propReaction) return propReaction;
+    return customerData?.reaction || "neutral";
+  }, [propReaction, customerData?.reaction]);
+
+  const reaction = finalReaction;
+  const finalIsVIP = isVIP || customerData?.isVIP || reaction === "VIP" || reaction === "vip";
+
+  // Generate and freeze the customer's conversational phrase to prevent changes during waddle movement
+  const phrase = useMemo(() => {
+    return generateCustomerPhrase(reaction, resolvedItemName);
+  }, [reaction, resolvedItemName]);
 
   // Set up shop entrance/exit path coordinates (waddling along the Z-axis)
   const entrance = { x: 0, y: 0.6, z: 8.0 }; // Spawn foreground, facing away
@@ -108,31 +176,17 @@ export default function Customer3D({ customerData, isVIP }) {
     }
   });
 
-
-  const reaction = customerData?.reaction || "neutral";
-  const finalIsVIP = isVIP || customerData?.isVIP || reaction === "VIP";
-
   // Dynamic SVG face texture select and styling setup based on reactions
   let clothingColour = "#38bdf8"; // default blue shirt
-  let bubbleBg = "bg-slate-900 border-slate-700 text-slate-100";
-  let reactEmoji = "😊";
 
   if (finalIsVIP) {
     clothingColour = "#c084fc"; // Royal purple clothing
-    bubbleBg = "bg-amber-950/95 border-amber-400 text-amber-200 shadow-amber-400/20 font-black";
-    reactEmoji = "👑";
   } else if (reaction === "bargain") {
     clothingColour = "#f472b6"; // Warm pink shirt
-    bubbleBg = "bg-pink-900/95 border-pink-500 text-white shadow-pink-500/20";
-    reactEmoji = "😍";
   } else if (reaction === "acceptable") {
     clothingColour = "#22d3ee"; // Cyan shirt
-    bubbleBg = "bg-cyan-900/95 border-cyan-500 text-white shadow-cyan-500/20";
-    reactEmoji = "😊";
   } else if (reaction === "expensive") {
     clothingColour = "#f87171"; // Coral red shirt
-    bubbleBg = "bg-red-900/95 border-red-500 text-white shadow-red-500/20";
-    reactEmoji = "😠";
   }
 
   // Load the pre-cached base64 SVG texture dynamically based on reaction state
@@ -239,15 +293,23 @@ export default function Customer3D({ customerData, isVIP }) {
       </group>
 
       {/* Floating HTML Speech Bubble displaying reactive feedback descriptions */}
-      {customerData && (
-        <Html position={[0, 1.25, 0]} center distanceFactor={7}>
-          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border backdrop-blur-md shadow-2xl text-[10px] font-bold select-none whitespace-nowrap transition-all duration-300 transform scale-110 ${bubbleBg}`}>
-            <span className="text-sm">{reactEmoji}</span>
-            <div className="flex flex-col text-left">
-              <span className="text-[8px] font-extrabold tracking-wider font-mono opacity-80 uppercase leading-none">Customer</span>
-              <span className="mt-0.5 max-w-[125px] overflow-hidden text-ellipsis whitespace-nowrap">"{customerData.text}"</span>
-            </div>
-            <span className="bg-black/40 px-1 rounded text-[9px]">{customerData.itemEmoji}</span>
+      {showBubble && phrase && (
+        <Html position={[0, 2.5, 0]} center distanceFactor={7}>
+          {/* Inline styles for bubbly pop-in scale spring animation */}
+          <style>{`
+            @keyframes bubblePop {
+              0% { transform: scale(0.6) translateY(10px); opacity: 0; }
+              70% { transform: scale(1.1) translateY(-2px); opacity: 1; }
+              100% { transform: scale(1) translateY(0); opacity: 1; }
+            }
+            .bubble-pop-anim {
+              animation: bubblePop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+            }
+          `}</style>
+          <div className="bubble-pop-anim relative bg-white text-slate-800 px-4 py-2.5 rounded-2xl shadow-2xl border border-slate-100 w-36 font-bold text-center text-[11px] leading-normal select-none">
+            "{phrase}"
+            {/* Elegant CSS speech triangle pointing down at head */}
+            <div className="absolute bottom-[-6px] left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-white" />
           </div>
         </Html>
       )}

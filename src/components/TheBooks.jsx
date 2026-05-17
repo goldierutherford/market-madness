@@ -19,7 +19,11 @@ export default function TheBooks({
   onClose,
   onSimulateDay,
   isSimulating,
-  stockCatalogue = defaultStockCatalogue
+  stockCatalogue = defaultStockCatalogue,
+  neonSignTier,
+  marketingActive,
+  upgradeNeonSign,
+  launchMarketing
 }) {
   const { bankBalance, inventory, retailPrices } = gameState;
 
@@ -250,10 +254,108 @@ export default function TheBooks({
               </div>
             );
           })}
+
+          {/* MARKETING & UPGRADES SECTION */}
+          <div className="mt-8 pt-8 border-t border-white/10">
+            <h3 className="text-sm font-black tracking-widest font-mono text-amber-200 uppercase mb-5 flex items-center gap-2">
+              <span>📢 Marketing & Upgrades</span>
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              
+              {/* Card 1: Local Flyer Campaign */}
+              <div className="rounded-2xl bg-slate-900/40 hover:bg-slate-900/60 border border-white/5 hover:border-white/10 p-5 transition-all duration-200 flex flex-col justify-between h-full">
+                <div>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="text-xs font-black text-slate-100 uppercase tracking-wider font-mono">
+                        Local Flyer Campaign
+                      </h4>
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        Daily Expense
+                      </p>
+                    </div>
+                    <span className="text-xs font-mono font-extrabold text-emerald-400 bg-emerald-950/55 px-2.5 py-1 rounded-lg border border-emerald-500/20 font-bold">
+                      $15
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-300 mt-3 font-medium leading-relaxed">
+                    Distribute vibrant product pamphlets around the local chibi town centre. <span className="text-emerald-400 font-semibold font-mono">Boosts foot traffic by 30% for TODAY ONLY.</span>
+                  </p>
+                </div>
+                
+                <div className="mt-5 pt-4 border-t border-white/5">
+                  {marketingActive ? (
+                    <span className="inline-flex w-full items-center justify-center px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.1)]">
+                      ✨ Campaign Active!
+                    </span>
+                  ) : (
+                    <button
+                      onClick={launchMarketing}
+                      className="w-full h-10 rounded-xl text-[10px] font-black uppercase tracking-widest bg-indigo-600 hover:bg-indigo-500 text-white transition-all duration-200 active:scale-95 cursor-pointer shadow-md shadow-indigo-600/10 font-bold"
+                    >
+                      Launch Campaign
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Card 2: Neon Store Sign Upgrades */}
+              <div className="rounded-2xl bg-slate-900/40 hover:bg-slate-900/60 border border-white/5 hover:border-white/10 p-5 transition-all duration-200 flex flex-col justify-between h-full">
+                <div>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="text-xs font-black text-slate-100 uppercase tracking-wider font-mono">
+                        Neon Store Sign
+                      </h4>
+                      <p className="text-[10px] text-amber-400 font-mono font-bold mt-1">
+                        Current Level: {neonSignTier} / 3
+                      </p>
+                    </div>
+                    <span className="text-xs font-mono font-extrabold text-emerald-400 bg-emerald-950/55 px-2.5 py-1 rounded-lg border border-emerald-500/20">
+                      {neonSignTier === 0 ? "$150" : (neonSignTier === 1 ? "$300" : (neonSignTier === 2 ? "$600" : "MAX"))}
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-300 mt-3 font-medium leading-relaxed space-y-2">
+                    <p>
+                      Install and upgrade a glowing gas-discharge neon sign high on the back wall of the store.
+                    </p>
+                    <div className="bg-slate-950/30 p-2.5 rounded-lg border border-white/[0.04] font-mono text-[10px] space-y-1">
+                      <div className={neonSignTier >= 1 ? "text-emerald-400 font-bold" : "text-slate-500"}>
+                        Level 1: Simple Red OPEN sign (+20% volume)
+                      </div>
+                      <div className={neonSignTier >= 2 ? "text-emerald-400 font-bold" : "text-slate-500"}>
+                        Level 2: Pink OPEN + Cyan outline (+40% volume)
+                      </div>
+                      <div className={neonSignTier >= 3 ? "text-emerald-400 font-bold" : "text-slate-500"}>
+                        Level 3: Rotating Stars SUPER MARKET (+60% volume)
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mt-5 pt-4 border-t border-white/5">
+                  {neonSignTier >= 3 ? (
+                    <span className="inline-flex w-full items-center justify-center px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.1)] font-mono">
+                      👑 MAX LEVEL REACHED
+                    </span>
+                  ) : (
+                    <button
+                      onClick={upgradeNeonSign}
+                      className="w-full h-10 rounded-xl text-[10px] font-black uppercase tracking-widest bg-indigo-600 hover:bg-indigo-500 text-white transition-all duration-200 active:scale-95 cursor-pointer shadow-md shadow-indigo-600/10 font-bold font-mono"
+                    >
+                      {neonSignTier === 0 ? "Buy & Install ($150)" : `Upgrade to Level ${neonSignTier + 1} ($${neonSignTier === 1 ? 300 : 600})`}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+            </div>
+          </div>
         </main>
 
         {/* FIXED FOOTER */}
-        <footer className="absolute bottom-0 left-0 right-0 p-6 bg-slate-900/90 border-t border-white/10 flex items-center justify-between relative z-30 shrink-0">
+        <footer className="relative z-30 shrink-0 p-6 bg-slate-900/90 border-t border-white/10 flex items-center justify-between">
           <div className="text-[10px] text-slate-400 max-w-[450px] font-mono leading-relaxed">
             📘 <span className="text-slate-200 font-semibold">Ledger Tip:</span> Wholesale stock loads into your visual inventory shelves. Listing retail prices within the <span className="text-emerald-400 font-semibold">Sweet Spot (40% - 90% markup)</span> encourages high daily traffic and fast turnovers.
           </div>
@@ -261,9 +363,9 @@ export default function TheBooks({
           <button
             onClick={onSimulateDay}
             disabled={isSimulating}
-            className="flex items-center gap-2 px-8 py-3.5 rounded-2xl font-black text-slate-950 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 transition-all duration-300 shadow-xl shadow-amber-500/10 cursor-pointer active:scale-95 text-xs uppercase tracking-widest font-mono"
+            className="flex items-center gap-2 px-8 py-3.5 rounded-2xl font-black text-slate-950 bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-400 transition-all duration-300 shadow-xl shadow-emerald-500/10 cursor-pointer active:scale-95 text-xs uppercase tracking-widest font-mono"
           >
-            <span>Conclude Trading Day & Simulate</span>
+            <span>Open Store & Start Trading</span>
           </button>
         </footer>
 

@@ -7,13 +7,15 @@ import {
   Coins, 
   Calendar, 
   Store,
-  BookOpen
+  BookOpen,
+  Landmark
 } from "lucide-react";
 import Shop3DWorld from "./Shop3DWorld";
 import TheBooks from "./TheBooks";
 import EndOfDayReport from "./EndOfDayReport";
 import TierUnlockModal from "./TierUnlockModal";
 import ProductSelectionModal from "./ProductSelectionModal";
+import BankCutscene from "./BankCutscene";
 
 export default function GameDashboard({ 
   gameState, 
@@ -29,7 +31,14 @@ export default function GameDashboard({
   unlockSpecificProducts,
   skipUnlockProducts,
   difficulty,
-  setDifficulty
+  setDifficulty,
+  isBankDay,
+  retainedEarnings,
+  processWeeklyDeposit,
+  neonSignTier,
+  marketingActive,
+  upgradeNeonSign,
+  launchMarketing
 }) {
   const { currentDay, bankBalance, inventory, retailPrices } = gameState;
 
@@ -177,6 +186,17 @@ export default function GameDashboard({
     simulateDay();
   };
 
+  // Performance Guardrail: If it is a Bank Day and we are not in the middle of showing the daily simulation report,
+  // cleanly unmount the shop canvas and render the 3D Bank world instead!
+  if (isBankDay && !endOfDayReport) {
+    return (
+      <BankCutscene 
+        bankBalance={bankBalance} 
+        processWeeklyDeposit={processWeeklyDeposit} 
+      />
+    );
+  }
+
   return (
     <div className="w-screen h-screen relative overflow-hidden bg-[#020408] text-white font-primary select-none">
       
@@ -190,6 +210,8 @@ export default function GameDashboard({
         isEndOfDay={sequenceStep === "walkingToDesk" || sequenceStep === "zooming" || sequenceStep === "showingStats"}
         onDeskReached={handleDeskReached}
         sequenceStep={sequenceStep}
+        neonSignTier={neonSignTier}
+        marketingActive={marketingActive}
       />
 
 
@@ -254,6 +276,13 @@ export default function GameDashboard({
             <span className="font-bold font-mono">Day {currentDay}</span>
           </div>
 
+          {retainedEarnings > 0 && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-900/80 border border-white/5 text-[10px] text-amber-400" title="Safely deposited vault balance">
+              <Landmark className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+              <span className="font-bold font-mono">${retainedEarnings.toFixed(2)}</span>
+            </div>
+          )}
+
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-900/80 border border-white/5 text-[10px]">
             <Coins className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
             <span className="font-bold font-mono text-emerald-400">${bankBalance.toFixed(2)}</span>
@@ -302,6 +331,10 @@ export default function GameDashboard({
           onClose={() => setIsBooksOpen(false)}
           onSimulateDay={handleTriggerSimulate}
           isSimulating={isSimulating}
+          neonSignTier={neonSignTier}
+          marketingActive={marketingActive}
+          upgradeNeonSign={upgradeNeonSign}
+          launchMarketing={launchMarketing}
         />
       )}
 

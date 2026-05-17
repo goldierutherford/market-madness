@@ -1,11 +1,13 @@
-import React from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { useRef, useMemo } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, Plane, Box } from "@react-three/drei";
 import { stockCatalogue } from "../hooks/useGameState";
 import Customer3D from "./Customer3D";
 import Shopkeeper3D from "./Shopkeeper3D";
 import ShelfItem3D from "./ShelfItem3D";
-import { MathUtils, Vector3 } from "three";
+import NeonSign3D from "./NeonSign3D";
+import MarketingPoster3D from "./MarketingPoster3D";
+import * as THREE from "three";
 
 // Coordinates for the 15 items in the master catalogue across the three shelves
 const SHELF_LOCATIONS = {
@@ -23,7 +25,7 @@ const SHELF_LOCATIONS = {
   book: [2.2, 0.95, 0.6],
   watch: [2.2, 0.95, 1.0],
 
-  // Back specialty & tech rack (z = -2.5, y = 1.45)
+  // Back speciality & tech rack (z = -2.5, y = 1.45)
   flowers: [-0.8, 1.45, -2.5],
   headphones: [-0.4, 1.45, -2.5],
   sneakers: [0.0, 1.45, -2.5],
@@ -73,41 +75,51 @@ function ShelfProducts3D({ inventory }) {
   return <group>{productObjects}</group>;
 }
 
-// Custom camera controller that handles zooming in to the computer desk screen
-function CameraController({ isZooming }) {
-  const { camera, controls } = useThree();
+// Dynamic drone-style camera controller utilising continuous linear interpolation
+function CameraController({ sequenceStep }) {
+  // Instantiate a persistent lookAtTarget vector using useRef to avoid garbage collection overhead
+  const lookAtTarget = useRef(new THREE.Vector3(0, 0, 0));
+
+  // Define coordinate vectors for the two camera states using useMemo to avoid re-allocation
+  const gameplayPos = useMemo(() => new THREE.Vector3(0, 5, 8), []);
+  const gameplayTarget = useMemo(() => new THREE.Vector3(0, 0, 1), []);
+
+  const deskPos = useMemo(() => new THREE.Vector3(-1.5, 2.5, 0), []);
+  const deskTarget = useMemo(() => new THREE.Vector3(-1.5, 1.2, -2), []);
 
   useFrame((state, delta) => {
-    if (isZooming) {
-      // Temporarily disable OrbitControls to let camera lerp freely without visual locking
+    const { camera, controls } = state;
+    // Delta-based interpolation factor to ensure smooth frame updates regardless of refresh rate
+    const lerpFactor = Math.min(delta * 2.5, 1.0);
+
+    if (sequenceStep === "playing") {
+      // Re-enable and update OrbitControls target to align with the camera during gameplay
+      if (controls) {
+        controls.enabled = true;
+        controls.target.lerp(gameplayTarget, lerpFactor);
+        controls.update();
+      }
+
+      // Smoothly fly camera back to above the door perspective using explicit Vector3 lerping
+      camera.position.lerp(gameplayPos, lerpFactor);
+      lookAtTarget.current.lerp(gameplayTarget, lerpFactor);
+    } else if (
+      sequenceStep === "walkingToDesk" ||
+      sequenceStep === "zooming" ||
+      sequenceStep === "showingStats"
+    ) {
+      // Temporarily disable OrbitControls to let camera lerp freely as a drone follow camera
       if (controls) {
         controls.enabled = false;
       }
 
-      // Smoothly zoom in to the computer screen: position camera close to the monitor
-      const destPos = new Vector3(-1.1, 0.78, -1.5);
-      const destLook = new Vector3(-1.7, 0.75, -1.5);
-
-      camera.position.lerp(destPos, Math.min(delta * 3.5, 1.0));
-      
-      if (controls) {
-        controls.target.lerp(destLook, Math.min(delta * 3.5, 1.0));
-        controls.update();
-      } else {
-        camera.lookAt(destLook);
-      }
-    } else {
-      // Default Camera position and lookAt target representing wide shopfloor perspective
-      const defaultPos = new Vector3(0, 5, 6.5);
-      const defaultLook = new Vector3(0, 0.45, 0.5);
-
-      if (controls) {
-        controls.enabled = true;
-        camera.position.lerp(defaultPos, Math.min(delta * 3.0, 1.0));
-        controls.target.lerp(defaultLook, Math.min(delta * 3.0, 1.0));
-        controls.update();
-      }
+      // Smoothly transition camera behind shopkeeper to workstation monitor using explicit Vector3 lerping
+      camera.position.lerp(deskPos, lerpFactor);
+      lookAtTarget.current.lerp(deskTarget, lerpFactor);
     }
+
+    // Execute camera.lookAt at the end of every frame to ensure smooth rotation as it flies
+    camera.lookAt(lookAtTarget.current);
   });
 
   return null;
@@ -120,13 +132,15 @@ export default function Shop3DWorld({
   isGoldenEmporium = false,
   isEndOfDay = false,
   onDeskReached = null,
-  sequenceStep = "playing"
+  sequenceStep = "playing",
+  neonSignTier = 0,
+  marketingActive = false
 }) {
   return (
     <div className="w-full h-full absolute inset-0 bg-[#020408] z-0 select-none">
       <Canvas
         shadows
-        camera={{ position: [0, 5, 6.5], fov: 50 }}
+        camera={{ position: [0, 5, 8], fov: 50 }}
       >
         {/* Lights */}
         <ambientLight intensity={0.5} />
@@ -146,8 +160,8 @@ export default function Shop3DWorld({
           <pointLight position={[0, 4, 0.5]} intensity={3.5} color="#fbbf24" distance={15} castShadow />
         )}
 
-        {/* Camera Controller Zoom Module */}
-        <CameraController isZooming={sequenceStep === "zooming" || sequenceStep === "showingStats"} />
+        {/* Camera Controller Zoom Module with sequenceStep prop */}
+        <CameraController sequenceStep={sequenceStep} />
 
         {/* 1. FLOOR PLANE */}
         <Plane rotation={[-Math.PI / 2, 0, 0]} args={[30, 30]} receiveShadow>
@@ -207,7 +221,7 @@ export default function Shop3DWorld({
           </Box>
         </group>
  
-        {/* Floral & Specialty Rack */}
+        {/* Floral & Speciality Rack */}
         <group position={[0, 0.65, -2.5]}>
           <Box args={[2.2, 1.3, 0.6]} castShadow receiveShadow>
             <meshStandardMaterial color={isGoldenEmporium ? "#78350f" : "#0f172a"} roughness={0.8} />
@@ -249,6 +263,12 @@ export default function Shop3DWorld({
 
         {/* Active product meshes */}
         <ShelfProducts3D inventory={inventory} />
+
+        {/* 3D Neon Sign Upgrade */}
+        {neonSignTier > 0 && <NeonSign3D tier={neonSignTier} />}
+
+        {/* 3D Marketing Campaign Poster */}
+        {marketingActive && <MarketingPoster3D />}
 
         {/* Shopkeeper Stevie 🧑‍🍳 */}
         <Shopkeeper3D 

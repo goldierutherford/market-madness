@@ -23,7 +23,14 @@ function App() {
     error,
     user,
     difficulty,
-    setDifficulty
+    setDifficulty,
+    isBankDay,
+    retainedEarnings,
+    processWeeklyDeposit,
+    neonSignTier,
+    marketingActive,
+    upgradeNeonSign,
+    launchMarketing
   } = useGameState();
 
   // 1. Beautiful Premium Loader
@@ -72,6 +79,13 @@ function App() {
             skipUnlockProducts={skipUnlockProducts}
             difficulty={difficulty}
             setDifficulty={setDifficulty}
+            isBankDay={isBankDay}
+            retainedEarnings={retainedEarnings}
+            processWeeklyDeposit={processWeeklyDeposit}
+            neonSignTier={neonSignTier}
+            marketingActive={marketingActive}
+            upgradeNeonSign={upgradeNeonSign}
+            launchMarketing={launchMarketing}
           />
         </>
       )}

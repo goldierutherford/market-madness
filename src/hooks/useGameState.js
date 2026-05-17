@@ -33,6 +33,9 @@ export function useGameState() {
   const [error, setError] = useState(null);
   const [hasJustUpgraded, setHasJustUpgraded] = useState(false);
   const [difficulty, setDifficulty] = useState("Easy");
+  const [neonSignTier, setNeonSignTier] = useState(0);
+  const [marketingSpendToday, setMarketingSpendToday] = useState(0);
+  const [marketingActive, setMarketingActive] = useState(false);
 
   // Core mathematical game state
   const [gameState, setGameState] = useState({
@@ -45,7 +48,9 @@ export function useGameState() {
     unlockedProductIds: ["apple", "cucumber", "bread"], // Starting default active items
     nextProductUnlockAt: 1000,
     pendingProductPicks: 0,
-    isGoldenEmporium: false
+    isGoldenEmporium: false,
+    isBankDay: false,
+    retainedEarnings: 0
   });
 
   // Keep track of the results from the most recent day simulated
@@ -78,9 +83,13 @@ export function useGameState() {
               unlockedProductIds: data.unlockedProductIds ?? ["apple", "cucumber", "bread"],
               nextProductUnlockAt: data.nextProductUnlockAt ?? 1000,
               pendingProductPicks: data.pendingProductPicks ?? 0,
-              isGoldenEmporium: data.isGoldenEmporium ?? false
+              isGoldenEmporium: data.isGoldenEmporium ?? false,
+              isBankDay: data.isBankDay ?? false,
+              retainedEarnings: data.retainedEarnings ?? 0
             };
             setGameState(loadedState);
+            setNeonSignTier(data.neonSignTier ?? 0);
+            setMarketingActive(data.marketingActive ?? false);
             if (loadedState.endOfDayReport) {
               setEndOfDayReport(loadedState.endOfDayReport);
             }
@@ -96,7 +105,9 @@ export function useGameState() {
               unlockedProductIds: ["apple", "cucumber", "bread"],
               nextProductUnlockAt: 1000,
               pendingProductPicks: 0,
-              isGoldenEmporium: false
+              isGoldenEmporium: false,
+              isBankDay: false,
+              retainedEarnings: 0
             };
             await setDoc(docRef, defaultState);
             setGameState(defaultState);
@@ -119,8 +130,13 @@ export function useGameState() {
           unlockedProductIds: ["apple", "cucumber", "bread"],
           nextProductUnlockAt: 1000,
           pendingProductPicks: 0,
-          isGoldenEmporium: false
+          isGoldenEmporium: false,
+          isBankDay: false,
+          retainedEarnings: 0
         });
+        setNeonSignTier(0);
+        setMarketingSpendToday(0);
+        setMarketingActive(false);
         setLoading(false);
       }
     });
@@ -129,16 +145,20 @@ export function useGameState() {
   }, []);
 
   // Save game state directly to cloud helper
-  const saveGameToCloud = useCallback(async (stateToSave, currentUser) => {
+  const saveGameToCloud = useCallback(async (stateToSave, currentUser, activeNeonTier = neonSignTier, activeMarketing = marketingActive) => {
     const activeUser = currentUser || user;
     if (!activeUser) return;
     try {
       const docRef = doc(db, "saves", activeUser.uid);
-      await setDoc(docRef, stateToSave);
+      await setDoc(docRef, {
+        ...stateToSave,
+        neonSignTier: activeNeonTier,
+        marketingActive: activeMarketing
+      });
     } catch (err) {
       console.error("Error saving game to cloud:", err);
     }
-  }, [user]);
+  }, [user, neonSignTier, marketingActive]);
 
   // Buy stock from the Wholesale Market
   const buyWholesaleStock = useCallback((itemId, quantity, cost) => {
@@ -250,6 +270,13 @@ export function useGameState() {
         fixedCosts = 50;
         customerVisitsPerItem = 50;
       }
+
+      // Customer Volume Multiplier Logic
+      let multiplier = 1.0 + (0.2 * neonSignTier);
+      if (marketingActive) {
+        multiplier += 0.3;
+      }
+      customerVisitsPerItem = Math.floor(customerVisitsPerItem * multiplier);
 
       // Filter available catalogue at this exact moment
       const currentActiveList = stockCatalogue.filter(
@@ -420,7 +447,7 @@ export function useGameState() {
       const roundedCOGS = Number(dailyCOGS.toFixed(2));
       const dailyGrossProfit = Number((dailyRevenue - roundedCOGS).toFixed(2));
       const rentDeducted = fixedCosts;
-      const netProfit = Number((dailyGrossProfit - rentDeducted).toFixed(2));
+      const netProfit = Number((dailyGrossProfit - rentDeducted - marketingSpendToday).toFixed(2));
 
       // Balance gets updated with liquid cash flow (Revenue - Rent)
       const newBalance = Number((prev.bankBalance + dailyRevenue - rentDeducted).toFixed(2));
@@ -472,6 +499,7 @@ export function useGameState() {
         dailyCOGS: roundedCOGS,
         dailyGrossProfit,
         rentDeducted,
+        marketingSpendToday,
         netProfit,
         startingBalance: prev.bankBalance,
         endingBalance: newBalance,
@@ -482,6 +510,9 @@ export function useGameState() {
         insights // Export the generated insights array
       };
 
+      // Bank trigger: checks if the day that just concluded is the end of Sunday (Day 7, 14, 21, etc.)
+      const isBankDayTrigger = (prev.currentDay % 7 === 0);
+
       const updatedState = {
         ...prev,
         currentDay: nextDay,
@@ -491,7 +522,9 @@ export function useGameState() {
         endOfDayReport: reportData,
         nextProductUnlockAt: currentNextUnlock,
         pendingProductPicks: picks,
-        isGoldenEmporium: reachedGoldenEmporium
+        isGoldenEmporium: reachedGoldenEmporium,
+        isBankDay: isBankDayTrigger,
+        retainedEarnings: prev.retainedEarnings ?? 0
       };
 
       // Set the report for display in the component
@@ -499,19 +532,93 @@ export function useGameState() {
 
       // Auto-save to cloud
       if (user) {
-        saveGameToCloud(updatedState, user);
+        saveGameToCloud(updatedState, user, neonSignTier, false);
       }
 
       return updatedState;
     });
-  }, [user, saveGameToCloud, difficulty]);
+
+    setMarketingActive(false);
+    setMarketingSpendToday(0);
+  }, [user, saveGameToCloud, difficulty, neonSignTier, marketingActive, marketingSpendToday]);
 
   const closeReport = useCallback(() => {
     setEndOfDayReport(null);
   }, []);
 
+  // Process the weekly deposit at the Royal Savings Bank
+  const processWeeklyDeposit = useCallback((floatAmount) => {
+    setGameState((prev) => {
+      const balanceToDeposit = prev.bankBalance - floatAmount;
+      const depositAmount = balanceToDeposit > 0 ? balanceToDeposit : 0;
+
+      const updatedState = {
+        ...prev,
+        bankBalance: floatAmount,
+        retainedEarnings: Number(((prev.retainedEarnings ?? 0) + depositAmount).toFixed(2)),
+        isBankDay: false
+      };
+
+      if (user) {
+        saveGameToCloud(updatedState, user);
+      }
+
+      return updatedState;
+    });
+  }, [user, saveGameToCloud]);
+
+  // Purchase/Upgrade Neon Sign
+  const upgradeNeonSign = useCallback(() => {
+    setGameState((prev) => {
+      let cost = 0;
+      if (neonSignTier === 0) cost = 150;
+      else if (neonSignTier === 1) cost = 300;
+      else if (neonSignTier === 2) cost = 600;
+      else return prev; // Max tier reached
+
+      if (prev.bankBalance < cost) {
+        alert(`Insufficient funds to upgrade the Neon Sign! Needs $${cost}`);
+        return prev;
+      }
+
+      const nextTier = neonSignTier + 1;
+      const updatedState = {
+        ...prev,
+        bankBalance: Number((prev.bankBalance - cost).toFixed(2))
+      };
+      setNeonSignTier(nextTier);
+      if (user) {
+        saveGameToCloud(updatedState, user, nextTier, marketingActive);
+      }
+      return updatedState;
+    });
+  }, [user, saveGameToCloud, neonSignTier, marketingActive]);
+
+  // Launch Flyer Campaign
+  const launchMarketing = useCallback(() => {
+    setGameState((prev) => {
+      if (prev.bankBalance < 15) {
+        alert("Insufficient funds to launch the Flyer Campaign!");
+        return prev;
+      }
+      const updatedState = {
+        ...prev,
+        bankBalance: Number((prev.bankBalance - 15).toFixed(2))
+      };
+      setMarketingActive(true);
+      setMarketingSpendToday(15);
+      if (user) {
+        saveGameToCloud(updatedState, user, neonSignTier, true);
+      }
+      return updatedState;
+    });
+  }, [user, saveGameToCloud, neonSignTier]);
+
   return {
     gameState,
+    isBankDay: gameState.isBankDay ?? false,
+    retainedEarnings: gameState.retainedEarnings ?? 0,
+    processWeeklyDeposit,
     stockCatalogue,
     availableCatalogue,
     buyWholesaleStock,
@@ -527,6 +634,16 @@ export function useGameState() {
     error,
     user,
     difficulty,
-    setDifficulty
+    setDifficulty,
+    
+    // Marketing & Upgrades Exports
+    neonSignTier,
+    setNeonSignTier,
+    marketingActive,
+    setMarketingActive,
+    marketingSpendToday,
+    setMarketingSpendToday,
+    upgradeNeonSign,
+    launchMarketing
   };
 }

@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Decal, useTexture, Html } from "@react-three/drei";
 import { generateFaceTexture } from "../utils/faceGenerator";
@@ -7,7 +7,11 @@ import { MathUtils } from "three";
 // Pre-load the shopkeeper face texture globally to prevent Suspense unmounting / blinking
 useTexture.preload(generateFaceTexture("shopkeeper"));
 
-export default function Shopkeeper3D({ isEndOfDay = false, onDeskReached }) {
+export default function Shopkeeper3D({ 
+  isEndOfDay = false, 
+  onDeskReached, 
+  dialogue = null 
+}) {
   const groupRef = useRef();
   const bodyRef = useRef();
 
@@ -152,6 +156,26 @@ export default function Shopkeeper3D({ isEndOfDay = false, onDeskReached }) {
           Stevie 🧑‍🍳
         </div>
       </Html>
+
+      {/* Cartoony Speech Bubble for dialogue sequence */}
+      {dialogue && (
+        <Html position={[0, 2.5, 0]} center distanceFactor={8}>
+          <style>{`
+            @keyframes shopkeeperPop {
+              0% { transform: scale(0.6) translateY(10px); opacity: 0; }
+              70% { transform: scale(1.1) translateY(-2px); opacity: 1; }
+              100% { transform: scale(1) translateY(0); opacity: 1; }
+            }
+            .sk-bubble-anim {
+              animation: shopkeeperPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+            }
+          `}</style>
+          <div className="sk-bubble-anim relative bg-white text-slate-800 px-4 py-2.5 rounded-2xl shadow-2xl border border-slate-100 w-36 font-bold text-center text-[11px] leading-normal select-none">
+            "{dialogue}"
+            <div className="absolute bottom-[-6px] left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-white" />
+          </div>
+        </Html>
+      )}
 
     </group>
   );

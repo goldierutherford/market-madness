@@ -19,9 +19,10 @@ export default function EndOfDayReport({ report, gameState, onClose }) {
   const { 
     daySimulated, 
     dailyRevenue = report.totalRevenue ?? 0, 
-    dailyCOGS = 0, 
-    dailyGrossProfit = (report.totalRevenue ?? 0) - dailyCOGS, 
+    dailyCOGS = report.dailyCOGS ?? 0, 
+    dailyGrossProfit = report.dailyGrossProfit ?? ((report.totalRevenue ?? 0) - dailyCOGS), 
     rentDeducted = report.fixedCosts ?? 5, 
+    marketingSpendToday = report.marketingSpendToday ?? 0,
     netProfit = report.netProfit ?? 0, 
     feedback = [], 
     itemsSold = {},
@@ -113,6 +114,17 @@ export default function EndOfDayReport({ report, gameState, onClose }) {
                 </div>
                 <span className="font-bold text-right whitespace-nowrap">-${rentDeducted.toFixed(2)}</span>
               </div>
+
+              {/* Row 4.5: Marketing Expense */}
+              {marketingSpendToday > 0 && (
+                <div className="flex justify-between items-start gap-4 text-rose-400 mt-2">
+                  <div className="flex flex-col text-left">
+                    <span className="font-semibold">Minus Marketing Expense</span>
+                    <span className="text-[10px] text-rose-400/80 leading-normal">Daily flyer campaigns used to boost localized customer volume.</span>
+                  </div>
+                  <span className="font-bold text-right whitespace-nowrap">-${marketingSpendToday.toFixed(2)}</span>
+                </div>
+              )}
 
               <div className="border-t-2 border-double border-slate-600/80 my-2" />
 
