@@ -73,39 +73,36 @@ export default function GameDashboard({
       const feedbackList = endOfDayReport.feedback || [];
       let queuedCustomers = [];
 
-      if (feedbackList.length === 0) {
-        queuedCustomers = [{
-          id: "empty-shop-cust-3d",
-          reaction: "expensive",
-          emoji: "🧔",
-          itemEmoji: "🏪",
-          itemId: null,
-          text: "The shelves are completely empty! Stevie has no stock."
-        }];
-      } else {
-        queuedCustomers = feedbackList.map((fb, idx) => {
-          let reaction = "acceptable";
-          const customerEmojis = ["🧑🌾", "👩⚕️", "👨💼", "👩🎨", "🧔", "👵", "🧑🚀", "👩🍳"];
-          const emoji = customerEmojis[idx % customerEmojis.length];
+      // Guarantee a bustling shop with exactly 5 visual customers
+      for (let i = 0; i < 5; i++) {
+        let fb = feedbackList[i % feedbackList.length];
+        
+        // Fallback if the array is completely empty
+        if (!fb) {
+          fb = { type: "Acceptable", emoji: "🛒", message: "Just browsing, thanks!" };
+        }
 
-          if (fb.type === "VIP" || fb.isVIP) reaction = "VIP";
-          else if (fb.type === "Bargain") reaction = "bargain";
-          else if (fb.type === "Too Expensive" || fb.type === "Too Cheap" || fb.type === "SoldOut") reaction = "expensive";
+        let reaction = "acceptable";
+        const customerEmojis = ["🧑🌾", "👩⚕️", "👨💼", "👩🎨", "🧔", "👵", "🧑🚀", "👩🍳"];
+        const emoji = customerEmojis[i % customerEmojis.length];
 
-          const rawMsg = fb.message || "";
-          const text = rawMsg.length > 35 ? rawMsg.substring(0, 32) + "..." : rawMsg;
+        if (fb.type === "VIP" || fb.isVIP) reaction = "VIP";
+        else if (fb.type === "Bargain") reaction = "bargain";
+        else if (fb.type === "Too Expensive" || fb.type === "Too Cheap" || fb.type === "SoldOut") reaction = "expensive";
 
-          return {
-            id: `cust-3d-${idx}-${Math.random()}`,
-            reaction,
-            emoji,
-            itemEmoji: fb.emoji || "🍏",
-            itemId: fb.itemId,
-            text,
-            isVIP: fb.isVIP || fb.type === "VIP",
-            isChildPair: Math.random() < 0.05 // 5% chance to spawn the parent/child joke sequence
-          };
-        }).slice(0, 5);
+        const rawMsg = fb.message || "Looks good!";
+        const text = rawMsg.length > 35 ? rawMsg.substring(0, 32) + "..." : rawMsg;
+
+        queuedCustomers.push({
+          id: `cust-3d-${endOfDayReport.daySimulated}-${i}-${Math.random()}`,
+          reaction,
+          emoji,
+          itemEmoji: fb.emoji || "📦",
+          itemId: fb.itemId,
+          text,
+          isVIP: fb.isVIP || fb.type === "VIP",
+          isChildPair: Math.random() < 0.10 // 10% chance to trigger the joke sequence
+        });
       }
 
       let currentIdx = 0;
@@ -114,6 +111,7 @@ export default function GameDashboard({
         if (currentIdx < queuedCustomers.length) {
           const nextCustomer = queuedCustomers[currentIdx];
           const isLastCustomer = currentIdx === queuedCustomers.length - 1;
+          
           setActiveCustomer(nextCustomer);
 
           if (nextCustomer && nextCustomer.itemId) {
@@ -123,17 +121,21 @@ export default function GameDashboard({
                 if (updated[nextCustomer.itemId] > 0) updated[nextCustomer.itemId] -= 1;
                 return updated;
               });
-            }, 1500);
+            }, 1500); // Deduct item from shelf exactly when they reach the counter
           }
 
           currentIdx++;
 
-          // Dynamic timer to eliminate the dead air after the final customer leaves
-          const animationExitTime = nextCustomer.isChildPair ? 12500 : 4500;
-          const standardGap = nextCustomer.isChildPair ? 16000 : 6000;
-          const duration = isLastCustomer ? animationExitTime : standardGap;
+          // Exact animation physics timings:
+          // Standard: 1.5s walk in + 1.5s wait + 3.0s walk out = 6.0s
+          // Joke Sequence: 1.5s walk in + 11.0s wait + 3.0s walk out = 15.5s
+          const totalAnimationTime = nextCustomer.isChildPair ? 15500 : 6000;
           
-          setTimeout(runCustomerQueue3D, duration);
+          // Overlap the next spawn by 1.5 seconds so the queue flows naturally
+          // If it's the last customer, overlap is 0 so the day ends precisely as they exit.
+          const overlapTime = isLastCustomer ? 0 : 1500;
+          
+          setTimeout(runCustomerQueue3D, totalAnimationTime - overlapTime);
         } else {
           setActiveCustomer(null);
           setIsSimulating(false);
