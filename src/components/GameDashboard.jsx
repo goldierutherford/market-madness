@@ -113,6 +113,7 @@ export default function GameDashboard({
       const runCustomerQueue3D = () => {
         if (currentIdx < queuedCustomers.length) {
           const nextCustomer = queuedCustomers[currentIdx];
+          const isLastCustomer = currentIdx === queuedCustomers.length - 1;
           setActiveCustomer(nextCustomer);
 
           if (nextCustomer && nextCustomer.itemId) {
@@ -126,8 +127,12 @@ export default function GameDashboard({
           }
 
           currentIdx++;
-          // If it is a joke sequence, wait 16 seconds. Otherwise, standard 6 seconds.
-          const duration = nextCustomer.isChildPair ? 16000 : 6000;
+
+          // Dynamic timer to eliminate the dead air after the final customer leaves
+          const animationExitTime = nextCustomer.isChildPair ? 12500 : 4500;
+          const standardGap = nextCustomer.isChildPair ? 16000 : 6000;
+          const duration = isLastCustomer ? animationExitTime : standardGap;
+          
           setTimeout(runCustomerQueue3D, duration);
         } else {
           setActiveCustomer(null);
