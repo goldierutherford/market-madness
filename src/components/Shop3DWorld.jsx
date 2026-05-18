@@ -317,6 +317,7 @@ export default function Shop3DWorld({
         {activeCustomer && (
           <>
             <Customer3D
+              key={activeCustomer.id} // Forces clean instance unmounting and resets the entry clock
               customerData={activeCustomer}
               isVIP={activeCustomer.isVIP}
               isExtendedVisit={activeCustomer.isChildPair}
@@ -325,6 +326,7 @@ export default function Shop3DWorld({
             />
             {activeCustomer.isChildPair && (
               <Customer3D
+                key={`${activeCustomer.id}-child`} // Separate unique key tracking for the joke companion
                 customerData={activeCustomer}
                 isExtendedVisit={true}
                 jokeState={jokeState}
