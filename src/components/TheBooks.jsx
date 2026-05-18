@@ -117,42 +117,69 @@ export default function TheBooks({ gameState, availableCatalogue, stockCatalogue
   const catalogue = availableCatalogue || stockCatalogue || [];
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center p-4 sm:p-8 lg:p-12 bg-black/85 backdrop-blur-md">
-      <div className="bg-slate-900 border-2 border-slate-700 rounded-[2.5rem] shadow-2xl w-full max-w-7xl h-[90vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-40 flex items-center justify-center p-6 md:p-12 bg-black/85 backdrop-blur-md">
+      <div className="bg-slate-900 border-2 border-slate-700 rounded-[2.5rem] shadow-2xl w-full max-w-7xl max-h-[90vh] flex flex-col overflow-hidden">
         
-        <div className="bg-slate-950 p-[10px] sm:p-8 border-b-2 border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-6 shrink-0 z-10 shadow-lg">
+        {/* Header Area */}
+        <div className="bg-slate-950 p-6 sm:p-8 border-b-2 border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-6 shrink-0 z-10 shadow-lg">
           <div className="text-center sm:text-left">
             <h2 className="text-4xl font-black text-amber-400 tracking-tight uppercase">Shop Setup: Day {gameState.currentDay}</h2>
-            <p className="text-slate-400 text-sm font-bold mt-2 tracking-wide">Configure procurement and pricing parameters.</p>
+            <p className="text-slate-400 text-sm font-bold mt-2 tracking-wide">Configure procurement and pricing parameters in a row ledger.</p>
           </div>
-          <div className="bg-slate-800 border-2 border-emerald-900/50 p-[10px] rounded-3xl text-center shadow-inner">
+          
+          <div className="bg-slate-800 border-2 border-emerald-900/50 px-8 py-4 rounded-3xl text-center shadow-inner">
             <p className="text-slate-400 text-[10px] font-black tracking-widest uppercase mb-1">Cash on Hand</p>
             <p className="text-4xl font-black text-emerald-400 font-mono drop-shadow-sm">${gameState.bankBalance.toFixed(2)}</p>
           </div>
         </div>
 
-        <div className="p-[10px] overflow-y-auto flex-1 bg-slate-900/50 mb-10">
-          <div className="mb-8">
+        {/* Main Content Area - Removed flex-1 and heavy bottom padding */}
+        <div className="p-6 sm:p-10 pb-6 overflow-y-auto bg-slate-900/50">
+          
+          <div className="mb-10">
             {catalogue.map(item => (
-              <ProductRow key={item.id} item={item} inventory={gameState.inventory} currentPrice={gameState.retailPrices[item.id]} onBuy={handleBuy} onPriceChange={handlePrice} bankBalance={gameState.bankBalance} />
+              <ProductRow 
+                key={item.id}
+                item={item}
+                inventory={gameState.inventory}
+                currentPrice={gameState.retailPrices[item.id]}
+                onBuy={handleBuy}
+                onPriceChange={handlePrice}
+                bankBalance={gameState.bankBalance}
+              />
             ))}
           </div>
 
-          <div className="flex flex-col gap-4 m-[10px]">
+          <div className="flex flex-col gap-6">
             <h3 className="text-amber-500 font-black tracking-widest uppercase text-sm px-2">Marketing & Upgrades</h3>
-            <div className="flex flex-wrap gap-4">
+            
+            <div className="flex flex-wrap gap-6">
               {neonUpgradeCost && (
-                <div className="flex-1 min-w-[280px] bg-indigo-950/40 border-2 border-indigo-700/50 rounded-3xl p-[10px] m-[10px] flex flex-col items-center justify-center gap-3 text-center shadow-md">
-                  <p className="text-indigo-300 font-black text-sm uppercase tracking-wide">Neon Sign Upgrade <Tooltip text="Attracts more customers!"/></p>
-                  <button onClick={upgradeNeonSign} disabled={gameState.bankBalance < neonUpgradeCost} className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-600 text-white text-sm font-black p-[10px] rounded-xl transition-transform hover:scale-105 active:scale-95 shadow-md w-full max-w-[200px]">
+                <div className="flex-1 min-w-[280px] bg-indigo-950/40 border-2 border-indigo-700/50 rounded-3xl p-6 flex flex-col items-center justify-center gap-4 text-center shadow-md">
+                  <div className="flex items-center gap-2">
+                    <p className="text-indigo-300 font-black text-sm uppercase tracking-wide">Neon Sign Upgrade</p>
+                    <Tooltip text={`Attracts more customers! Buy the Tier ${neonSignTier + 1} Upgrade.`}/>
+                  </div>
+                  <button 
+                    onClick={upgradeNeonSign}
+                    disabled={gameState.bankBalance < neonUpgradeCost}
+                    className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-600 text-white text-sm font-black px-8 py-3 rounded-xl transition-transform hover:scale-105 active:scale-95 shadow-md w-full max-w-[200px]"
+                  >
                     BUY FOR ${neonUpgradeCost}
                   </button>
                 </div>
               )}
               {!marketingActive && (
-                <div className="flex-1 min-w-[280px] bg-rose-950/40 border-2 border-rose-700/50 rounded-3xl p-[10px] m-[10px] flex flex-col items-center justify-center gap-3 text-center shadow-md">
-                  <p className="text-rose-300 font-black text-sm uppercase tracking-wide">Flyer Campaign <Tooltip text="Boosts foot traffic by 30% today!"/></p>
-                  <button onClick={launchMarketing} disabled={gameState.bankBalance < 10} className="bg-rose-600 hover:bg-rose-500 disabled:bg-slate-800 disabled:text-slate-600 text-white text-sm font-black p-[10px] rounded-xl transition-transform hover:scale-105 active:scale-95 shadow-md w-full max-w-[200px]">
+                <div className="flex-1 min-w-[280px] bg-rose-950/40 border-2 border-rose-700/50 rounded-3xl p-6 flex flex-col items-center justify-center gap-4 text-center shadow-md">
+                  <div className="flex items-center gap-2">
+                    <p className="text-rose-300 font-black text-sm uppercase tracking-wide">Flyer Campaign</p>
+                    <Tooltip text="Spend $10 today to hand out flyers. It brings in extra customers for this day only!"/>
+                  </div>
+                  <button 
+                    onClick={launchMarketing}
+                    disabled={gameState.bankBalance < 10}
+                    className="bg-rose-600 hover:bg-rose-500 disabled:bg-slate-800 disabled:text-slate-600 text-white text-sm font-black px-8 py-3 rounded-xl transition-transform hover:scale-105 active:scale-95 shadow-md w-full max-w-[200px]"
+                  >
                     PAY $10
                   </button>
                 </div>
@@ -161,8 +188,13 @@ export default function TheBooks({ gameState, availableCatalogue, stockCatalogue
           </div>
         </div>
 
-        <div className="bg-slate-950 p-[10px] sm:p-8 border-t-2 border-slate-800 shrink-0 z-10 shadow-[0_-15px_40px_-15px_rgba(0,0,0,0.6)] mt-4">
-          <button onClick={onSimulateDay} disabled={isSimulating} className="w-full bg-amber-500 hover:bg-amber-400 disabled:bg-slate-800 disabled:text-slate-600 text-black font-black text-3xl py-6 rounded-2xl transition-transform hover:scale-[1.01] active:scale-[0.99] shadow-2xl flex items-center justify-center tracking-wide">
+        {/* Footer Area */}
+        <div className="bg-slate-950 p-6 sm:p-8 border-t-2 border-slate-700 shrink-0 z-10 shadow-[0_-15px_40px_-15px_rgba(0,0,0,0.6)]">
+          <button
+            onClick={onSimulateDay}
+            disabled={isSimulating}
+            className="w-full bg-amber-500 hover:bg-amber-400 disabled:bg-slate-800 disabled:text-slate-600 text-black font-black text-3xl py-6 rounded-2xl transition-transform hover:scale-[1.01] active:scale-[0.99] shadow-2xl flex items-center justify-center tracking-wide"
+          >
             {isSimulating ? 'SIMULATING DAY...' : 'OPEN STORE & START TRADING'}
           </button>
         </div>

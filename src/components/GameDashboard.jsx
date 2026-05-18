@@ -185,7 +185,7 @@ export default function GameDashboard({
   }
 
   return (
-    <div className="w-screen h-screen relative overflow-hidden bg-[#020408] text-white font-primary select-none">
+    <div className="absolute inset-0 w-full h-full overflow-hidden bg-[#020408] text-white font-primary select-none">
       
       <Shop3DWorld 
         inventory={visualInventory}
@@ -283,16 +283,18 @@ export default function GameDashboard({
             <span>Open Books</span>
           </button>
 
-          {/* New Restart Button */}
           <button 
             onClick={() => {
               if (window.confirm("Are you sure you want to restart your business from Day 1? You will lose all your money, stock, and upgrades!")) {
                 resetGame(difficulty);
+                setSequenceStep("playing");
+                setIsSimulating(false);
+                setActiveCustomer(null);
+                setShowReportModal(false);
                 setIsBooksOpen(true);
               }
             }}
-            disabled={isSimulating || sequenceStep !== "playing"}
-            className="p-2 rounded-xl bg-slate-800/40 hover:bg-rose-900/80 border border-white/10 text-slate-400 hover:text-rose-400 transition-colors shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-2 rounded-xl bg-slate-800/40 hover:bg-rose-900/80 border border-white/10 text-slate-400 hover:text-rose-400 transition-colors shadow-md cursor-pointer"
             title="Restart Game from Day 1"
           >
             <RotateCcw className="w-4 h-4" />
