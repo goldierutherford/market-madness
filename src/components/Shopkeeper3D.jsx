@@ -10,7 +10,8 @@ useTexture.preload(generateFaceTexture("shopkeeper"));
 export default function Shopkeeper3D({ 
   isEndOfDay = false, 
   onDeskReached, 
-  dialogue = null 
+  dialogue = null,
+  jokeState = null
 }) {
   const groupRef = useRef();
   const bodyRef = useRef();
@@ -153,29 +154,41 @@ export default function Shopkeeper3D({
       {/* Floating HTML Signage badge */}
       <Html position={[0, 1.25, 0]} center distanceFactor={8}>
         <div className="bg-slate-950/80 border border-blue-500/40 text-blue-400 text-[8px] font-bold px-2 py-0.5 rounded shadow-lg uppercase tracking-widest whitespace-nowrap select-none pointer-events-none">
-          Stevie 🧑‍🍳
+          Shopkeeper 🧑‍🍳
         </div>
       </Html>
 
       {/* Cartoony Speech Bubble for dialogue sequence */}
-      {dialogue && (
-        <Html position={[0, 2.5, 0]} center distanceFactor={8}>
-          <style>{`
-            @keyframes shopkeeperPop {
-              0% { transform: scale(0.6) translateY(10px); opacity: 0; }
-              70% { transform: scale(1.1) translateY(-2px); opacity: 1; }
-              100% { transform: scale(1) translateY(0); opacity: 1; }
-            }
-            .sk-bubble-anim {
-              animation: shopkeeperPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-            }
-          `}</style>
-          <div className="sk-bubble-anim relative bg-white text-slate-800 px-4 py-2.5 rounded-2xl shadow-2xl border border-slate-100 w-36 font-bold text-center text-[11px] leading-normal select-none">
-            "{dialogue}"
-            <div className="absolute bottom-[-6px] left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-white" />
-          </div>
-        </Html>
-      )}
+      {(() => {
+        let displayPhrase = dialogue;
+        let forceBubble = !!dialogue;
+
+        if (jokeState?.active && jokeState.phase === 3) {
+          displayPhrase = jokeState.currentJoke?.response;
+          forceBubble = true;
+        }
+
+        if (!forceBubble || !displayPhrase) return null;
+
+        return (
+          <Html position={[0, 2.1, 0]} center distanceFactor={7.5}>
+            <style>{`
+              @keyframes shopkeeperPop {
+                0% { transform: scale(0.6) translateY(10px); opacity: 0; }
+                70% { transform: scale(1.1) translateY(-2px); opacity: 1; }
+                100% { transform: scale(1) translateY(0); opacity: 1; }
+              }
+              .sk-bubble-anim {
+                animation: shopkeeperPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+              }
+            `}</style>
+            <div className="sk-bubble-anim relative bg-white text-slate-800 px-5 py-3.5 rounded-2xl shadow-2xl border border-slate-100 w-52 font-extrabold text-center text-[13px] leading-relaxed select-none">
+              "{displayPhrase}"
+              <div className="absolute bottom-[-6px] left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-white" />
+            </div>
+          </Html>
+        );
+      })()}
 
     </group>
   );

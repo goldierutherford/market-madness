@@ -89,6 +89,28 @@ export function generateFaceTexture(reaction) {
       `;
       break;
 
+    case "tongue":
+      // Cheeky face: wide open circular eyes and a pink tongue sticking out
+      svgContent = `
+        <!-- Rosy Blush Circles -->
+        <circle cx="56" cy="132" r="12" fill="#fda4af" opacity="0.6" />
+        <circle cx="200" cy="132" r="12" fill="#fda4af" opacity="0.6" />
+
+        <!-- Wide Open Left Eye -->
+        <circle cx="90" cy="112" r="14" fill="${themeColor}" />
+        <circle cx="86" cy="108" r="5" fill="#ffffff" />
+        
+        <!-- Wide Open Right Eye -->
+        <circle cx="166" cy="112" r="14" fill="${themeColor}" />
+        <circle cx="162" cy="108" r="5" fill="#ffffff" />
+
+        <!-- Mouth and Pink Tongue Sticking Out -->
+        <path d="M112,142 Q128,148 144,142" stroke="${themeColor}" stroke-width="6" stroke-linecap="round" fill="none" />
+        <path d="M120,144 Q128,172 136,144 Z" fill="#fb7185" stroke="${themeColor}" stroke-width="5" stroke-linejoin="round" />
+        <line x1="128" y1="145" x2="128" y2="158" stroke="${themeColor}" stroke-width="3" stroke-linecap="round" />
+      `;
+      break;
+
     case "neutral":
     default:
       // 😐 equivalent: Two vertical oval eyes and a simple flat/curved line smile

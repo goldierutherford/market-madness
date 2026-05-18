@@ -57,7 +57,7 @@ export default function ShopFloor({
             </div>
             <div>
               <h4 className="text-xs font-bold font-mono tracking-widest text-amber-200 uppercase">Checkout Till</h4>
-              <p className="text-[10px] text-amber-100/70">Stevie registers sales here</p>
+              <p className="text-[10px] text-amber-100/70">Register sales here</p>
             </div>
           </div>
 

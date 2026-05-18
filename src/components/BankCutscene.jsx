@@ -1,11 +1,46 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, Component } from 'react';
 import { Canvas } from '@react-three/fiber';
 import Bank3DWorld from './Bank3DWorld';
 import Town3DWorld from './Town3DWorld';
+import ShopFacade3D from './ShopFacade3D';
 
-export default function BankCutscene({ bankBalance, processWeeklyDeposit }) {
-  const [phase, setPhase] = useState('riding_to_bank');
+// Error Boundary to catch WebGL context losses or offline font loading failures
+class CinematicErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error("Cinematic skipped due to error:", error);
+    // Push the state update to the next tick to avoid React rendering conflicts
+    setTimeout(() => {
+      if (this.props.onSkip) {
+        this.props.onSkip();
+      }
+    }, 100);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="fixed inset-0 z-50 bg-slate-900 flex items-center justify-center text-slate-400 font-bold tracking-widest">
+          LOADING...
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export default function BankCutscene({ bankBalance, processWeeklyDeposit, currentTier = 1 }) {
+  const [phase, setPhase] = useState('closing_shop');
   const [isLeaving, setIsLeaving] = useState(false);
+  const floatAmount = currentTier >= 3 ? 500 : 100;
 
   useEffect(() => {}, [phase]);
 
@@ -14,35 +49,57 @@ export default function BankCutscene({ bankBalance, processWeeklyDeposit }) {
     setIsLeaving(true); 
   };
 
+  if (phase === 'closing_shop') {
+    return (
+      <CinematicErrorBoundary onSkip={() => setPhase('riding_to_bank')}>
+        <div className="fixed inset-0 z-50 bg-sky-200">
+          <Canvas shadows>
+            <Suspense fallback={null}>
+              <ShopFacade3D onTransitionComplete={() => setPhase('riding_to_bank')} />
+            </Suspense>
+          </Canvas>
+        </div>
+      </CinematicErrorBoundary>
+    );
+  }
+
   if (phase === 'riding_to_bank') {
     return (
-      <div className="fixed inset-0 z-50 bg-sky-200">
-        <Canvas shadows>
-          <Town3DWorld direction="to_bank" onTransitionComplete={() => setPhase('bank_scene')} />
-        </Canvas>
-      </div>
+      <CinematicErrorBoundary onSkip={() => setPhase('bank_scene')}>
+        <div className="fixed inset-0 z-50 bg-sky-200">
+          <Canvas shadows>
+            <Suspense fallback={null}>
+              <Town3DWorld direction="to_bank" onTransitionComplete={() => setPhase('bank_scene')} />
+            </Suspense>
+          </Canvas>
+        </div>
+      </CinematicErrorBoundary>
     );
   }
 
   if (phase === 'riding_home') {
     return (
-      <div className="fixed inset-0 z-50 bg-orange-200">
-        <Canvas shadows>
-          <Town3DWorld direction="to_home" onTransitionComplete={() => processWeeklyDeposit(100)} />
-        </Canvas>
-      </div>
+      <CinematicErrorBoundary onSkip={() => processWeeklyDeposit(floatAmount)}>
+        <div className="fixed inset-0 z-50 bg-orange-200">
+          <Canvas shadows>
+            <Suspense fallback={null}>
+              <Town3DWorld direction="to_home" onTransitionComplete={() => processWeeklyDeposit(floatAmount)} />
+            </Suspense>
+          </Canvas>
+        </div>
+      </CinematicErrorBoundary>
     );
   }
 
   return (
     <div className="fixed inset-0 z-50 bg-black">
-      <Canvas shadows>
+      <Suspense fallback={null}>
         <Bank3DWorld
           isLeaving={isLeaving}
           onAtCounter={() => setPhase('deposit_ui')}
           onLeaveComplete={() => setPhase('riding_home')} 
         />
-      </Canvas>
+      </Suspense>
 
       {phase === 'deposit_ui' && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
@@ -59,7 +116,7 @@ export default function BankCutscene({ bankBalance, processWeeklyDeposit }) {
               onClick={handleDepositClick}
               className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xl py-4 px-6 rounded-xl transition-transform hover:scale-105 active:scale-95"
             >
-              DEPOSIT & KEEP $100 FLOAT
+              DEPOSIT & KEEP ${floatAmount} FLOAT
             </button>
           </div>
         </div>

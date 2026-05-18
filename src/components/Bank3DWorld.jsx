@@ -185,7 +185,7 @@ function BankScene({ isLeaving, onAtCounter, onLeaveComplete }) {
       </group>
 
       {/* The Random Customer (Stationary on opposite side of table facing manager) */}
-      <group position={[5, 0, -0.5]}>
+      <group position={[5, 0.65, -0.5]}>
         <Customer3D 
           isStationary 
           reaction={bgReaction} 
@@ -195,7 +195,7 @@ function BankScene({ isLeaving, onAtCounter, onLeaveComplete }) {
 
 
       {/* Shopkeeper (Stevie): Walk-in parent group starting from the doorway, fed with dialogue text */}
-      <group ref={shopkeeperParentRef} position={[0, -0.65, 12.0]} rotation={[0, Math.PI, 0]}>
+      <group ref={shopkeeperParentRef} position={[0, 0.65, 12.0]} rotation={[0, Math.PI, 0]}>
         <Shopkeeper3D isEndOfDay={false} dialogue={shopkeeperText} />
       </group>
 

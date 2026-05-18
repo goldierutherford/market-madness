@@ -81,11 +81,8 @@ export default function Shopkeeper() {
 
       {/* Shopkeeper Name Signboard */}
       <div className="mt-1 flex flex-col items-center">
-        <span className="text-[10px] font-bold tracking-widest font-mono text-pink-400 uppercase">
-          Shopkeeper
-        </span>
         <span className="text-xs font-bold text-white mt-0.5">
-          Stevie 🧑‍🍳
+          Shopkeeper 🧑‍🍳
         </span>
       </div>
 

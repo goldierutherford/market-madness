@@ -1,6 +1,5 @@
 import React, { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
-import { Text } from "@react-three/drei";
 
 // Reusable letters component for Tiers 1 and 2 to ensure clean, modular code
 const OpenLetters = ({ color, name }) => (
@@ -283,43 +282,35 @@ export default function NeonSign3D({ tier = 1, position = [0, 3.2, -2.8], rotati
             <meshStandardMaterial color="#ec4899" emissive="#ec4899" emissiveIntensity={2.5} toneMapped={false} />
           </mesh>
 
-          {/* "SUPER" - Large glowing yellow-gold 3D blocky font */}
-          <Text
+          {/* "SUPER" - Large glowing yellow-gold solid neon plaque */}
+          <mesh
             name="neon-super"
             position={[0, 0.22, 0.01]}
-            fontSize={0.34}
-            color="#fbbf24"
-            anchorX="center"
-            anchorY="middle"
-            font="https://fonts.gstatic.com/s/outfit/v11/08pykQ1TvOGqR1Df3vWCAw.woff"
           >
-            SUPER
+            <boxGeometry args={[1.2, 0.32, 0.04]} />
             <meshStandardMaterial 
               color="#fbbf24" 
               emissive="#fbbf24" 
               emissiveIntensity={4.0} 
-              toneMapped={false} 
+              toneMapped={false}
+              roughness={0.1}
             />
-          </Text>
+          </mesh>
 
-          {/* "MARKET" - Extra-large glowing pink 3D blocky font */}
-          <Text
+          {/* "MARKET" - Extra-large glowing pink solid neon plaque */}
+          <mesh
             name="neon-market"
             position={[0, -0.22, 0.01]}
-            fontSize={0.38}
-            color="#ec4899"
-            anchorX="center"
-            anchorY="middle"
-            font="https://fonts.gstatic.com/s/outfit/v11/08pykQ1TvOGqR1Df3vWCAw.woff"
           >
-            MARKET
+            <boxGeometry args={[1.4, 0.36, 0.04]} />
             <meshStandardMaterial 
               color="#ec4899" 
               emissive="#ec4899" 
               emissiveIntensity={4.5} 
-              toneMapped={false} 
+              toneMapped={false}
+              roughness={0.1}
             />
-          </Text>
+          </mesh>
 
           {/* Rotating retro 8-point stars on flanks */}
           <NeonStar position={[-0.85, 0, 0.01]} ref={starRef1} />

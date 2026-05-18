@@ -1,4 +1,4 @@
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, useState, useEffect } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, Plane, Box } from "@react-three/drei";
 import { stockCatalogue } from "../hooks/useGameState";
@@ -7,30 +7,32 @@ import Shopkeeper3D from "./Shopkeeper3D";
 import ShelfItem3D from "./ShelfItem3D";
 import NeonSign3D from "./NeonSign3D";
 import MarketingPoster3D from "./MarketingPoster3D";
+import Basket3D from "./Basket3D";
 import * as THREE from "three";
+import { jokeDatabase } from "../utils/jokeDatabase";
 
 // Coordinates for the 15 items in the master catalogue across the three shelves
 const SHELF_LOCATIONS = {
-  // Left produce rack (x = -2.2, y = 0.95)
-  apple: [-2.2, 0.95, -0.6],
-  cucumber: [-2.2, 0.95, -0.2],
-  watermelon: [-2.2, 0.95, 0.2],
-  coffee: [-2.2, 0.95, 0.6],
-  plant: [-2.2, 0.95, 1.0],
+  // Left produce rack (x = -2.2, y = 0.85)
+  apple: [-2.2, 0.85, -0.6],
+  cucumber: [-2.2, 0.85, -0.2],
+  watermelon: [-2.2, 0.85, 0.2],
+  coffee: [-2.2, 0.85, 0.6],
+  plant: [-2.2, 0.85, 1.0],
 
-  // Right bakery & luxury rack (x = 2.2, y = 0.95)
-  bread: [2.2, 0.95, -0.6],
-  toycar: [2.2, 0.95, -0.2],
-  cheese: [2.2, 0.95, 0.2],
-  book: [2.2, 0.95, 0.6],
-  watch: [2.2, 0.95, 1.0],
+  // Right bakery & luxury rack (x = 2.2, y = 0.85)
+  bread: [2.2, 0.85, -0.6],
+  toycar: [2.2, 0.85, -0.2],
+  cheese: [2.2, 0.85, 0.2],
+  book: [2.2, 0.85, 0.6],
+  watch: [2.2, 0.85, 1.0],
 
-  // Back speciality & tech rack (z = -2.5, y = 1.45)
-  flowers: [-0.8, 1.45, -2.5],
-  headphones: [-0.4, 1.45, -2.5],
-  sneakers: [0.0, 1.45, -2.5],
-  sunglasses: [0.4, 1.45, -2.5],
-  laptop: [0.8, 1.45, -2.5]
+  // Back speciality & tech rack (z = -2.5, y = 1.32)
+  flowers: [-0.8, 1.32, -2.5],
+  headphones: [-0.4, 1.32, -2.5],
+  sneakers: [0.0, 1.32, -2.5],
+  sunglasses: [0.4, 1.32, -2.5],
+  laptop: [0.8, 1.32, -2.5]
 };
 
 // Physical representation of products rendered on 3D Shelves based on stocked volumes
@@ -45,29 +47,38 @@ function ShelfProducts3D({ inventory }) {
 
     if (!basePos) return;
 
+    const basketChildren = [];
     for (let k = 0; k < renderQty; k++) {
       let finalPos;
       
-      // Calculate coordinates depending on shelf orientation
+      // Calculate coordinates relative to the basket (starting at X=0, Y=0, Z=0)
       if (item.tierRequired === 3 || item.id === "flowers") {
         // Back wall shelf: stack upwards, depth layer along Z
-        const yOffset = Math.floor(k / 2) * 0.14;
-        const zOffset = (k % 2) * 0.12 - 0.06;
-        finalPos = [basePos[0], basePos[1] + yOffset, basePos[2] + zOffset];
+        const yOffset = Math.floor(k / 2) * 0.10;
+        const zOffset = (k % 2) * 0.10 - 0.05;
+        finalPos = [0, yOffset, zOffset];
       } else {
         // Left/Right deep shelves: stack upwards, side-by-side along X
-        const xOffset = (k % 2) * 0.18 - 0.09;
-        const yOffset = Math.floor(k / 2) * 0.14;
-        finalPos = [basePos[0] + xOffset, basePos[1] + yOffset, basePos[2]];
+        const xOffset = (k % 2) * 0.12 - 0.06;
+        const yOffset = Math.floor(k / 2) * 0.10;
+        finalPos = [xOffset, yOffset, 0];
       }
 
-      productObjects.push(
+      basketChildren.push(
         <ShelfItem3D
           key={`${item.id}-${k}`}
           itemId={item.id}
           emoji={item.emoji}
           position={finalPos}
         />
+      );
+    }
+
+    if (qty > 0) {
+      productObjects.push(
+        <Basket3D key={`basket-${item.id}`} position={basePos}>
+          {basketChildren}
+        </Basket3D>
       );
     }
   });
@@ -127,6 +138,7 @@ function CameraController({ sequenceStep }) {
 
 export default function Shop3DWorld({ 
   inventory, 
+  liveInventory = {},
   activeCustomer = null, 
   currentTier = 1, 
   isGoldenEmporium = false,
@@ -136,6 +148,30 @@ export default function Shop3DWorld({
   neonSignTier = 0,
   marketingActive = false
 }) {
+  const displayInventory = Object.keys(liveInventory || {}).length > 0 ? liveInventory : inventory;
+
+  const [jokeState, setJokeState] = useState({ active: false, phase: 0, currentJoke: null });
+
+  // 2. Add the Joke Director useEffect
+  useEffect(() => {
+    if (activeCustomer?.isChildPair) {
+      const randomJoke = jokeDatabase[Math.floor(Math.random() * jokeDatabase.length)];
+      setJokeState({ active: true, phase: 0, currentJoke: randomJoke });
+
+      // The precise choreography timeline
+      const t1 = setTimeout(() => setJokeState(prev => ({ ...prev, phase: 1 })), 1500); // Mum speaks
+      const t2 = setTimeout(() => setJokeState(prev => ({ ...prev, phase: 2 })), 3500); // Kid setup
+      const t3 = setTimeout(() => setJokeState(prev => ({ ...prev, phase: 3 })), 6000); // Shopkeeper response
+      const t4 = setTimeout(() => setJokeState(prev => ({ ...prev, phase: 4 })), 8000); // Kid punchline
+      const t5 = setTimeout(() => setJokeState(prev => ({ ...prev, phase: 5 })), 10500); // Mum speaks
+      const t6 = setTimeout(() => setJokeState({ active: false, phase: 0, currentJoke: null }), 12500); // Turn and leave
+
+      return () => [t1, t2, t3, t4, t5, t6].forEach(clearTimeout);
+    } else {
+      setJokeState({ active: false, phase: 0, currentJoke: null });
+    }
+  }, [activeCustomer]);
+
   return (
     <div className="w-full h-full absolute inset-0 bg-[#020408] z-0 select-none">
       <Canvas
@@ -159,10 +195,10 @@ export default function Shop3DWorld({
         {isGoldenEmporium && (
           <pointLight position={[0, 4, 0.5]} intensity={3.5} color="#fbbf24" distance={15} castShadow />
         )}
-
+ 
         {/* Camera Controller Zoom Module with sequenceStep prop */}
         <CameraController sequenceStep={sequenceStep} />
-
+ 
         {/* 1. FLOOR PLANE */}
         <Plane rotation={[-Math.PI / 2, 0, 0]} args={[30, 30]} receiveShadow>
           <meshStandardMaterial 
@@ -171,7 +207,7 @@ export default function Shop3DWorld({
             metalness={isGoldenEmporium ? 0.8 : 0.02} 
           />
         </Plane>
-
+ 
         {/* 2. BLOCKY MAIN COUNTER */}
         <group position={[0, 0.45, 0.5]}>
           {/* Base Counter box */}
@@ -199,7 +235,7 @@ export default function Shop3DWorld({
             />
           </Box>
         </group>
-
+ 
         {/* 3. SHELVES */}
         {/* Produce Rack */}
         <group position={[-2.2, 0.4, 0.4]}>
@@ -210,7 +246,7 @@ export default function Shop3DWorld({
             <meshStandardMaterial color={isGoldenEmporium ? "#fbbf24" : "#ea580c"} roughness={0.7} />
           </Box>
         </group>
- 
+  
         {/* Bakery & Dairy Rack */}
         <group position={[2.2, 0.4, 0.4]}>
           <Box args={[0.9, 0.8, 1.8]} castShadow receiveShadow>
@@ -220,7 +256,7 @@ export default function Shop3DWorld({
             <meshStandardMaterial color={isGoldenEmporium ? "#fbbf24" : "#ea580c"} roughness={0.7} />
           </Box>
         </group>
- 
+  
         {/* Floral & Speciality Rack */}
         <group position={[0, 0.65, -2.5]}>
           <Box args={[2.2, 1.3, 0.6]} castShadow receiveShadow>
@@ -230,7 +266,7 @@ export default function Shop3DWorld({
             <meshStandardMaterial color={isGoldenEmporium ? "#fbbf24" : "#ea580c"} roughness={0.7} />
           </Box>
         </group>
-
+ 
         {/* 4. DETAILED COMPUTER DESK SETUP */}
         <group>
           {/* Mahogany Wooden Desk Table Box */}
@@ -260,9 +296,9 @@ export default function Shop3DWorld({
             <meshStandardMaterial color="#1e293b" roughness={0.5} />
           </Box>
         </group>
-
+ 
         {/* Active product meshes */}
-        <ShelfProducts3D inventory={inventory} />
+        <ShelfProducts3D inventory={displayInventory} />
 
         {/* 3D Neon Sign Upgrade */}
         {neonSignTier > 0 && <NeonSign3D tier={neonSignTier} />}
@@ -274,15 +310,29 @@ export default function Shop3DWorld({
         <Shopkeeper3D 
           isEndOfDay={isEndOfDay}
           onDeskReached={onDeskReached}
+          jokeState={jokeState}
         />
 
         {/* Walking Customer Avatar */}
         {activeCustomer && (
-          <Customer3D 
-            key={activeCustomer.id} 
-            customerData={activeCustomer} 
-            isVIP={activeCustomer.isVIP} 
-          />
+          <>
+            <Customer3D
+              customerData={activeCustomer}
+              isVIP={activeCustomer.isVIP}
+              isExtendedVisit={activeCustomer.isChildPair}
+              jokeState={jokeState}
+              isChild={false}
+            />
+            {activeCustomer.isChildPair && (
+              <Customer3D
+                customerData={activeCustomer}
+                isExtendedVisit={true}
+                jokeState={jokeState}
+                isChild={true}
+                reaction="tongue"
+              />
+            )}
+          </>
         )}
 
         {/* Camera Orbit view angle parameters */}

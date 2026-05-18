@@ -1,376 +1,263 @@
-import React, { useState } from "react";
-import { stockCatalogue as defaultStockCatalogue } from "../hooks/useGameState";
-import { 
-  ShoppingBag, 
-  Sliders, 
-  X, 
-  Plus, 
-  Minus,
-  Coins,
-  Bookmark,
-  TrendingUp,
-  AlertTriangle
-} from "lucide-react";
+import React from 'react';
 
-export default function TheBooks({ 
-  gameState, 
-  buyWholesaleStock, 
-  setRetailPrice, 
-  onClose,
-  onSimulateDay,
-  isSimulating,
-  stockCatalogue = defaultStockCatalogue,
-  neonSignTier,
-  marketingActive,
-  upgradeNeonSign,
-  launchMarketing
-}) {
-  const { bankBalance, inventory, retailPrices } = gameState;
+// Pure CSS Tooltip using Tailwind group-hover
+const Tooltip = ({ text }) => (
+  <div className="relative group inline-block cursor-help z-50">
+    <span className="text-slate-500 hover:text-amber-400 transition-colors font-black text-[10px] px-1.5 py-0.5 rounded-full border border-slate-600 hover:border-amber-400">?</span>
+    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-56 p-3 bg-slate-800 text-slate-200 text-xs rounded-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none shadow-2xl border border-slate-500 text-center leading-relaxed normal-case tracking-normal">
+      {text}
+      <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-slate-500"></div>
+      <div className="absolute top-full left-1/2 -translate-x-1/2 border-[7px] border-transparent border-t-slate-800"></div>
+    </div>
+  </div>
+);
 
-  // Local state to track bulk purchase quantites (default to 10 for quick fills)
-  const [purchaseQuantities, setPurchaseQuantities] = useState(
-    stockCatalogue.reduce((acc, item) => ({ ...acc, [item.id]: 10 }), {})
-  );
+// Visual Gauge to teach pricing strategy
+const PriceGauge = ({ currentPrice, wholesaleCost }) => {
+  const price = Number(currentPrice) || 0;
+  const ratio = price / wholesaleCost;
+  
+  let label = "Set a price!";
+  let barColor = "bg-slate-600";
+  let markerPosition = 0;
 
-  // Local state for pricing fields to ensure smooth typing
-  const [tempRetailPrices, setTempRetailPrices] = useState(
-    stockCatalogue.reduce((acc, item) => ({ 
-      ...acc, 
-      [item.id]: retailPrices[item.id] || (item.wholesaleCost * 1.5).toFixed(2) 
-    }), {})
-  );
-
-  const updatePurchaseQty = (itemId, amount) => {
-    setPurchaseQuantities((prev) => {
-      const newQty = Math.max(1, (prev[itemId] || 0) + amount);
-      return { ...prev, [itemId]: newQty };
-    });
-  };
-
-  const handleQtyChange = (itemId, val) => {
-    const qty = parseInt(val, 10);
-    setPurchaseQuantities((prev) => ({
-      ...prev,
-      [itemId]: isNaN(qty) ? 1 : Math.max(1, qty)
-    }));
-  };
-
-  const handlePriceChange = (itemId, val) => {
-    setTempRetailPrices((prev) => ({
-      ...prev,
-      [itemId]: val
-    }));
+  if (price > 0) {
+    markerPosition = Math.min((ratio / 4) * 100, 100); 
     
-    const numPrice = parseFloat(val);
-    if (!isNaN(numPrice) && numPrice >= 0) {
-      setRetailPrice(itemId, numPrice);
+    if (ratio < 1) {
+      label = "Losing Money!";
+      barColor = "bg-rose-500";
+    } else if (ratio <= 1.5) {
+      label = "Bargain!";
+      barColor = "bg-emerald-300";
+    } else if (ratio <= 2.5) {
+      label = "Sweet Spot";
+      barColor = "bg-emerald-500";
+    } else {
+      label = "Too Expensive";
+      barColor = "bg-rose-500";
     }
+  }
+
+  return (
+    <div className="w-full bg-slate-950/50 p-4 rounded-xl border border-slate-800">
+      <div className="flex justify-between items-center mb-3">
+        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Market Check</span>
+        <span className={`text-[10px] font-black uppercase tracking-wider ${price > 0 ? (ratio > 2.5 || ratio < 1 ? 'text-rose-400' : 'text-emerald-400') : 'text-slate-500'}`}>
+          {label}
+        </span>
+      </div>
+      <div className="h-3 w-full bg-slate-800 rounded-full relative overflow-hidden shadow-inner">
+        <div 
+          className={`absolute top-0 left-0 h-full transition-all duration-300 rounded-full ${barColor}`}
+          style={{ width: `${markerPosition}%` }}
+        />
+        <div className="absolute top-0 left-1/4 h-full w-[1px] bg-white/20"></div>
+        <div className="absolute top-0 left-[62.5%] h-full w-[1px] bg-white/20"></div>
+      </div>
+    </div>
+  );
+};
+
+// Horizontal Row Layout for Products
+const ProductRow = ({ item, inventory, currentPrice, onBuy, onPriceChange, bankBalance }) => {
+  const stock = inventory[item.id] || 0;
+  const batchCost = Number((item.wholesaleCost * 10).toFixed(2));
+  const canAfford = bankBalance >= batchCost;
+  const priceNum = Number(currentPrice) || 0;
+  const profitPerItem = Math.max(-item.wholesaleCost, priceNum - item.wholesaleCost);
+
+  const handleDecrease = () => {
+    const newPrice = Math.max(0, Math.round((priceNum - 0.10) * 100) / 100);
+    onPriceChange(item.id, newPrice.toFixed(2));
   };
 
-  const calculateMarginMetrics = (item, retailPriceStr) => {
-    const rPrice = parseFloat(retailPriceStr) || 0;
-    if (rPrice <= 0) return { profit: 0, markup: 0 };
-    const profit = rPrice - item.wholesaleCost;
-    const markup = (profit / item.wholesaleCost) * 100;
-    return { profit, markup };
+  const handleIncrease = () => {
+    const newPrice = Math.round((priceNum + 0.10) * 100) / 100;
+    onPriceChange(item.id, newPrice.toFixed(2));
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md select-none">
+    <div className="bg-slate-800 border-2 border-slate-600 rounded-3xl p-6 mb-6 flex flex-col lg:flex-row items-center justify-between gap-6 shadow-xl hover:border-slate-400 transition-colors">
       
-      {/* Ledger Container */}
-      <div className="relative w-full max-w-6xl bg-[#090b0f] border border-amber-500/25 rounded-3xl shadow-[0_0_60px_rgba(245,158,11,0.12)] overflow-hidden flex flex-col h-[85vh] max-h-[800px]">
+      {/* 1. Item Metadata */}
+      <div className="flex items-center gap-5 w-full lg:w-1/4 min-w-[240px]">
+        <span className="text-6xl drop-shadow-md">{item.emoji}</span>
+        <div>
+          <h3 className="text-white font-black text-base uppercase tracking-wide leading-tight mb-2">{item.name}</h3>
+          <div className="inline-flex items-center px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 shadow-inner">
+            <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mr-2">Stock:</span>
+            <span className={stock > 0 ? 'text-emerald-400 font-black text-sm' : 'text-rose-400 font-black text-sm'}>{stock}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Financial Metrics & Supply Procurement */}
+      <div className="flex items-center justify-between bg-slate-900/40 p-4 rounded-2xl border border-slate-700/50 w-full lg:w-1/4 min-w-[220px]">
+        <div className="flex flex-col">
+          <div className="flex items-center gap-1.5 mb-1">
+            <span className="text-[10px] text-slate-400 font-black uppercase tracking-wider">Cost Per Item</span>
+            <Tooltip text="The wholesale price you pay the supplier to buy one unit of this stock." />
+          </div>
+          <span className="text-white font-mono font-bold text-sm">${item.wholesaleCost.toFixed(2)}</span>
+        </div>
         
-        {/* FIXED HEADER */}
-        <header className="flex items-center justify-between p-6 bg-slate-900/80 border-b border-white/10 relative z-30 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-slate-950 shadow-md">
-              <Bookmark className="w-5.5 h-5.5" />
-            </div>
-            <div>
-              <h2 className="text-base font-black tracking-widest font-mono text-amber-200 uppercase">
-                Shop Management Ledger Books
-              </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Configure procurement and pricing list parameters in a unified row ledger
-              </p>
-            </div>
+        <button 
+          onClick={() => onBuy(item.id, 10, item.wholesaleCost)}
+          disabled={!canAfford}
+          className={`text-xs font-black px-4 py-2.5 rounded-xl transition-transform shadow-md ${canAfford ? 'bg-indigo-500 hover:bg-indigo-400 text-white hover:scale-105 active:scale-95' : 'bg-slate-700 text-slate-500 cursor-not-allowed'}`}
+        >
+          BUY 10 (-${batchCost.toFixed(2)})
+        </button>
+      </div>
+
+      {/* 3. Retail Price Stepper & Net Unit Profit */}
+      <div className="flex items-center justify-between bg-slate-900/40 p-4 rounded-2xl border border-slate-700/50 w-full lg:w-1/4 min-w-[240px]">
+        <div className="flex flex-col">
+          <div className="flex items-center gap-1.5 mb-1">
+            <span className="text-[10px] text-slate-400 font-black uppercase tracking-wider">Profit Per Item</span>
+            <Tooltip text="What you make on every unit sold after subtracting the wholesale cost. Retail Price minus Cost!" />
           </div>
+          <span className={`font-mono font-black text-sm ${profitPerItem >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+            {profitPerItem < 0 ? '-' : ''}${Math.abs(profitPerItem).toFixed(2)}
+          </span>
+        </div>
 
-          <div className="flex items-center gap-6">
-            {/* Cash Display HUD */}
-            <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-slate-950 border border-white/10 shadow-inner">
-              <Coins className="w-4 h-4 text-emerald-400 animate-pulse" />
-              <div className="text-right">
-                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest font-mono leading-none">Bank Balance</p>
-                <p className="text-sm font-extrabold text-emerald-400 font-mono mt-0.5 leading-none">
-                  ${bankBalance.toFixed(2)}
-                </p>
-              </div>
-            </div>
-            
-            <button 
-              onClick={onClose}
-              className="p-2 rounded-xl bg-slate-800/40 hover:bg-slate-800 border border-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer"
-              title="Close books"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        </header>
+        <div className="flex items-center gap-2 bg-slate-950 rounded-xl border border-slate-600 p-1.5 shadow-inner">
+          <button 
+            onClick={handleDecrease} 
+            className="w-10 h-10 flex items-center justify-center bg-slate-800 hover:bg-slate-600 rounded-lg text-slate-300 hover:text-white transition-colors font-black text-2xl select-none active:scale-95"
+          >
+            -
+          </button>
+          <span className="w-20 text-center text-sm text-amber-400 font-black font-mono select-none">
+            ${priceNum.toFixed(2)}
+          </span>
+          <button 
+            onClick={handleIncrease} 
+            className="w-10 h-10 flex items-center justify-center bg-slate-800 hover:bg-slate-600 rounded-lg text-slate-300 hover:text-white transition-colors font-black text-2xl select-none active:scale-95"
+          >
+            +
+          </button>
+        </div>
+      </div>
 
-        {/* UNIFIED SCROLLABLE SINGLE COLUMN */}
-        <main className="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-4 scrollbar-thin pb-28">
-          {stockCatalogue.map((item) => {
-            const qty = purchaseQuantities[item.id] || 10;
-            const totalCost = qty * item.wholesaleCost;
-            const canAfford = bankBalance >= totalCost;
-            const qtyInStock = inventory[item.id] || 0;
-            const retailPriceStr = tempRetailPrices[item.id] ?? (item.wholesaleCost * 1.5).toFixed(2);
-            const { profit, markup } = calculateMarginMetrics(item, retailPriceStr);
+      {/* 4. Live Strategy Check */}
+      <div className="w-full lg:w-1/4">
+        <PriceGauge currentPrice={currentPrice} wholesaleCost={item.wholesaleCost} />
+      </div>
 
-            // Price elasticity styling configs
-            let priceAlert = "✨ Sweet Spot";
-            let alertColor = "text-emerald-400";
-            let barColor = "bg-emerald-500 animate-pulse";
-            if (markup > 90) {
-              priceAlert = "⚠️ High Price";
-              alertColor = "text-amber-400";
-              barColor = "bg-amber-500";
-            } else if (markup < 40) {
-              priceAlert = "📉 Thin Margins";
-              alertColor = "text-sky-400";
-              barColor = "bg-sky-500";
-            }
+    </div>
+  );
+};
 
-            return (
-              <div 
-                key={item.id} 
-                className="w-full rounded-2xl bg-slate-900/40 hover:bg-slate-900/60 border border-white/5 hover:border-white/10 p-5 transition-all duration-200 hover:shadow-lg"
-              >
-                {/* CSS GRID: Unified Row layout */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
-                  
-                  {/* COLUMN 1: PRODUCT INFO (lg:col-span-3) */}
-                  <div className="lg:col-span-3 flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-2xl bg-slate-950 border border-white/10 flex items-center justify-center text-3xl shadow-md filter drop-shadow-[0_2px_6px_rgba(0,0,0,0.4)]">
-                      {item.emoji}
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-black text-slate-100 uppercase tracking-wide">{item.name}</h3>
-                      <p className="text-[10px] text-slate-400 mt-0.5">Wholesale cost: ${item.wholesaleCost.toFixed(2)}/unit</p>
-                      
-                      <div className="mt-2">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold font-mono ${qtyInStock > 0 ? "bg-indigo-950 text-indigo-300 border border-indigo-900" : "bg-rose-950 text-rose-300 border border-rose-900"}`}>
-                          Stocked: {qtyInStock} units
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+export default function TheBooks({ 
+  gameState, 
+  availableCatalogue, 
+  stockCatalogue,
+  buyWholesaleStock, 
+  setRetailPrice, 
+  onSimulateDay, 
+  isSimulating,
+  neonSignTier,
+  upgradeNeonSign,
+  marketingActive,
+  launchMarketing
+}) {
+  
+  const handleBuy = (id, qty, cost) => buyWholesaleStock(id, qty, cost);
+  const handlePrice = (id, price) => setRetailPrice(id, price);
 
-                  {/* COLUMN 2: PROCUREMENT DIALS (lg:col-span-4) */}
-                  <div className="lg:col-span-4 flex items-center gap-3 bg-slate-950/60 p-3 rounded-xl border border-white/5 justify-between">
-                    <div className="text-left">
-                      <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider font-mono">Wholesale Buy</p>
-                      <p className="text-xs font-bold text-slate-200 mt-0.5 font-mono">Batch Size</p>
-                    </div>
+  const neonUpgradeCost = neonSignTier === 0 ? 150 : neonSignTier === 1 ? 300 : neonSignTier === 2 ? 600 : null;
+  const catalogue = availableCatalogue || stockCatalogue || [];
 
-                    {/* Numeric counter dial */}
-                    <div className="flex items-center bg-slate-900 border border-white/10 rounded-lg overflow-hidden h-8">
-                      <button 
-                        onClick={() => updatePurchaseQty(item.id, -5)} 
-                        className="px-2.5 h-full text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
-                      >
-                        <Minus className="w-3.5 h-3.5" />
-                      </button>
-                      <input 
-                        type="number" 
-                        min="1" 
-                        value={qty} 
-                        onChange={(e) => handleQtyChange(item.id, e.target.value)}
-                        className="w-12 text-center bg-transparent border-none text-xs font-extrabold font-mono text-slate-100 focus:outline-none"
-                      />
-                      <button 
-                        onClick={() => updatePurchaseQty(item.id, 5)} 
-                        className="px-2.5 h-full text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-
-                    <button
-                      onClick={() => buyWholesaleStock(item.id, qty, item.wholesaleCost)}
-                      disabled={!canAfford}
-                      className={`h-8 px-4 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-200 ${canAfford ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-md active:scale-95 cursor-pointer" : "bg-slate-800 text-slate-500 cursor-not-allowed"}`}
-                    >
-                      {canAfford ? `Buy [$${totalCost.toFixed(2)}]` : "No Cash"}
-                    </button>
-                  </div>
-
-                  {/* COLUMN 3: RETAIL PRICE SETTINGS (lg:col-span-2) */}
-                  <div className="lg:col-span-2 flex flex-col gap-1 bg-slate-950/40 p-3 rounded-xl border border-white/5">
-                    <label className="text-[8px] font-bold text-slate-400 uppercase tracking-widest font-mono">Retail Price</label>
-                    <div className="relative flex items-center bg-slate-950 border border-white/10 rounded-lg overflow-hidden h-8 px-2 mt-0.5">
-                      <span className="text-xs font-bold text-slate-500 font-mono">$</span>
-                      <input
-                        type="number"
-                        step="0.05"
-                        min="0"
-                        value={retailPriceStr}
-                        onChange={(e) => handlePriceChange(item.id, e.target.value)}
-                        placeholder="0.00"
-                        className="w-full bg-transparent border-none text-xs font-black font-mono text-slate-100 focus:outline-none pl-1"
-                      />
-                    </div>
-                  </div>
-
-                  {/* COLUMN 4: ANALYTICS & SENSITIVITY (lg:col-span-3) */}
-                  <div className="lg:col-span-3 flex flex-col gap-2 bg-slate-950/20 p-3 rounded-xl border border-white/5">
-                    
-                    {/* Read-only Margins data */}
-                    <div className="flex justify-between items-center text-[10px] border-b border-white/5 pb-1.5">
-                      <span className="text-slate-400 font-mono">Profit Margin:</span>
-                      <span className={`font-mono font-black ${profit >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                        ${profit.toFixed(2)} ({markup.toFixed(1)}%)
-                      </span>
-                    </div>
-
-                    {/* Elasticity Advice Bar */}
-                    <div className="flex items-center justify-between gap-2 mt-0.5">
-                      <div className="flex-1 h-2 bg-slate-950 rounded-full overflow-hidden">
-                        <div 
-                          className={`h-full rounded-full transition-all duration-300 ${barColor}`}
-                          style={{ width: `${Math.min(100, Math.max(0, markup))}%` }}
-                        />
-                      </div>
-                      <span className={`text-[9px] font-bold font-mono whitespace-nowrap ${alertColor}`}>
-                        {priceAlert}
-                      </span>
-                    </div>
-
-                  </div>
-
-                </div>
-              </div>
-            );
-          })}
-
-          {/* MARKETING & UPGRADES SECTION */}
-          <div className="mt-8 pt-8 border-t border-white/10">
-            <h3 className="text-sm font-black tracking-widest font-mono text-amber-200 uppercase mb-5 flex items-center gap-2">
-              <span>📢 Marketing & Upgrades</span>
-            </h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              
-              {/* Card 1: Local Flyer Campaign */}
-              <div className="rounded-2xl bg-slate-900/40 hover:bg-slate-900/60 border border-white/5 hover:border-white/10 p-5 transition-all duration-200 flex flex-col justify-between h-full">
-                <div>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="text-xs font-black text-slate-100 uppercase tracking-wider font-mono">
-                        Local Flyer Campaign
-                      </h4>
-                      <p className="text-[10px] text-slate-400 mt-1">
-                        Daily Expense
-                      </p>
-                    </div>
-                    <span className="text-xs font-mono font-extrabold text-emerald-400 bg-emerald-950/55 px-2.5 py-1 rounded-lg border border-emerald-500/20 font-bold">
-                      $10
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-300 mt-3 font-medium leading-relaxed">
-                    Distribute vibrant product pamphlets around the local chibi town centre. <span className="text-emerald-400 font-semibold font-mono">Boosts foot traffic by 30% for TODAY ONLY.</span>
-                  </p>
-                </div>
-                
-                <div className="mt-5 pt-4 border-t border-white/5">
-                  {marketingActive ? (
-                    <span className="inline-flex w-full items-center justify-center px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.1)]">
-                      ✨ Campaign Active!
-                    </span>
-                  ) : (
-                    <button
-                      onClick={launchMarketing}
-                      className="w-full h-10 rounded-xl text-[10px] font-black uppercase tracking-widest bg-indigo-600 hover:bg-indigo-500 text-white transition-all duration-200 active:scale-95 cursor-pointer shadow-md shadow-indigo-600/10 font-bold"
-                    >
-                      Launch Campaign
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Card 2: Neon Store Sign Upgrades */}
-              <div className="rounded-2xl bg-slate-900/40 hover:bg-slate-900/60 border border-white/5 hover:border-white/10 p-5 transition-all duration-200 flex flex-col justify-between h-full">
-                <div>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="text-xs font-black text-slate-100 uppercase tracking-wider font-mono">
-                        Neon Store Sign
-                      </h4>
-                      <p className="text-[10px] text-amber-400 font-mono font-bold mt-1">
-                        Current Level: {neonSignTier} / 3
-                      </p>
-                    </div>
-                    <span className="text-xs font-mono font-extrabold text-emerald-400 bg-emerald-950/55 px-2.5 py-1 rounded-lg border border-emerald-500/20">
-                      {neonSignTier === 0 ? "$150" : (neonSignTier === 1 ? "$300" : (neonSignTier === 2 ? "$600" : "MAX"))}
-                    </span>
-                  </div>
-                  <div className="text-xs text-slate-300 mt-3 font-medium leading-relaxed space-y-2">
-                    <p>
-                      Install and upgrade a glowing gas-discharge neon sign high on the back wall of the store.
-                    </p>
-                    <div className="bg-slate-950/30 p-2.5 rounded-lg border border-white/[0.04] font-mono text-[10px] space-y-1">
-                      <div className={neonSignTier >= 1 ? "text-emerald-400 font-bold" : "text-slate-500"}>
-                        Level 1: Simple Red OPEN sign (+20% volume)
-                      </div>
-                      <div className={neonSignTier >= 2 ? "text-emerald-400 font-bold" : "text-slate-500"}>
-                        Level 2: Pink OPEN + Cyan outline (+40% volume)
-                      </div>
-                      <div className={neonSignTier >= 3 ? "text-emerald-400 font-bold" : "text-slate-500"}>
-                        Level 3: Rotating Stars SUPER MARKET (+60% volume)
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="mt-5 pt-4 border-t border-white/5">
-                  {neonSignTier >= 3 ? (
-                    <span className="inline-flex w-full items-center justify-center px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.1)] font-mono">
-                      👑 MAX LEVEL REACHED
-                    </span>
-                  ) : (
-                    <button
-                      onClick={upgradeNeonSign}
-                      className="w-full h-10 rounded-xl text-[10px] font-black uppercase tracking-widest bg-indigo-600 hover:bg-indigo-500 text-white transition-all duration-200 active:scale-95 cursor-pointer shadow-md shadow-indigo-600/10 font-bold font-mono"
-                    >
-                      {neonSignTier === 0 ? "Buy & Install ($150)" : `Upgrade to Level ${neonSignTier + 1} ($${neonSignTier === 1 ? 300 : 600})`}
-                    </button>
-                  )}
-                </div>
-              </div>
-
-            </div>
-          </div>
-        </main>
-
-        {/* FIXED FOOTER */}
-        <footer className="relative z-30 shrink-0 p-6 bg-slate-900/90 border-t border-white/10 flex items-center justify-between">
-          <div className="text-[10px] text-slate-400 max-w-[450px] font-mono leading-relaxed">
-            📘 <span className="text-slate-200 font-semibold">Ledger Tip:</span> Wholesale stock loads into your visual inventory shelves. Listing retail prices within the <span className="text-emerald-400 font-semibold">Sweet Spot (40% - 90% markup)</span> encourages high daily traffic and fast turnovers.
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center p-4 sm:p-8 lg:p-12 bg-black/85 backdrop-blur-md">
+      <div className="bg-slate-900 border-2 border-slate-700 rounded-[2.5rem] shadow-2xl w-full max-w-7xl h-[90vh] flex flex-col overflow-hidden">
+        
+        {/* Header Area */}
+        <div className="bg-slate-950 p-6 sm:p-8 border-b-2 border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-6 shrink-0 z-10 shadow-lg">
+          <div className="text-center sm:text-left">
+            <h2 className="text-4xl font-black text-amber-400 tracking-tight uppercase">Shop Setup: Day {gameState.currentDay}</h2>
+            <p className="text-slate-400 text-sm font-bold mt-2 tracking-wide">Configure procurement and pricing parameters in a row ledger.</p>
           </div>
           
+          <div className="bg-slate-800 border-2 border-emerald-900/50 px-8 py-4 rounded-3xl text-center shadow-inner">
+            <p className="text-slate-400 text-[10px] font-black tracking-widest uppercase mb-1">Cash on Hand</p>
+            <p className="text-4xl font-black text-emerald-400 font-mono drop-shadow-sm">${gameState.bankBalance.toFixed(2)}</p>
+          </div>
+        </div>
+
+        {/* Main Content Area (Scrollable with heavy bottom padding) */}
+        <div className="p-6 sm:p-10 pb-16 overflow-y-auto flex-1 bg-slate-900/50">
+          
+          {/* Row Rendering Grid Container */}
+          <div className="mb-10">
+            {catalogue.map(item => (
+              <ProductRow 
+                key={item.id}
+                item={item}
+                inventory={gameState.inventory}
+                currentPrice={gameState.retailPrices[item.id]}
+                onBuy={handleBuy}
+                onPriceChange={handlePrice}
+                bankBalance={gameState.bankBalance}
+              />
+            ))}
+          </div>
+
+          {/* Optional Upgrades Banner - Stacked & Positioned Below Items */}
+          <div className="flex flex-col gap-6">
+            <h3 className="text-amber-500 font-black tracking-widest uppercase text-sm px-2">Marketing & Upgrades</h3>
+            
+            <div className="flex flex-wrap gap-6">
+              {neonUpgradeCost && (
+                <div className="flex-1 min-w-[280px] bg-indigo-950/40 border-2 border-indigo-700/50 rounded-3xl p-6 flex flex-col items-center justify-center gap-4 text-center shadow-md">
+                  <div className="flex items-center gap-2">
+                    <p className="text-indigo-300 font-black text-sm uppercase tracking-wide">Neon Sign Upgrade</p>
+                    <Tooltip text={`Attracts more customers! Buy the Tier ${neonSignTier + 1} Upgrade.`}/>
+                  </div>
+                  <button 
+                    onClick={upgradeNeonSign}
+                    disabled={gameState.bankBalance < neonUpgradeCost}
+                    className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-600 text-white text-sm font-black px-8 py-3 rounded-xl transition-transform hover:scale-105 active:scale-95 shadow-md w-full max-w-[200px]"
+                  >
+                    BUY FOR ${neonUpgradeCost}
+                  </button>
+                </div>
+              )}
+              {!marketingActive && (
+                <div className="flex-1 min-w-[280px] bg-rose-950/40 border-2 border-rose-700/50 rounded-3xl p-6 flex flex-col items-center justify-center gap-4 text-center shadow-md">
+                  <div className="flex items-center gap-2">
+                    <p className="text-rose-300 font-black text-sm uppercase tracking-wide">Flyer Campaign</p>
+                    <Tooltip text="Spend $10 today to hand out flyers. It brings in extra customers for this day only!"/>
+                  </div>
+                  <button 
+                    onClick={launchMarketing}
+                    disabled={gameState.bankBalance < 10}
+                    className="bg-rose-600 hover:bg-rose-500 disabled:bg-slate-800 disabled:text-slate-600 text-white text-sm font-black px-8 py-3 rounded-xl transition-transform hover:scale-105 active:scale-95 shadow-md w-full max-w-[200px]"
+                  >
+                    PAY $10
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+          
+        </div>
+
+        {/* Footer Area */}
+        <div className="bg-slate-950 p-6 sm:p-8 border-t-2 border-slate-700 shrink-0 z-10 shadow-[0_-15px_40px_-15px_rgba(0,0,0,0.6)]">
           <button
             onClick={onSimulateDay}
             disabled={isSimulating}
-            className="flex items-center gap-2 px-8 py-3.5 rounded-2xl font-black text-slate-950 bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-400 transition-all duration-300 shadow-xl shadow-emerald-500/10 cursor-pointer active:scale-95 text-xs uppercase tracking-widest font-mono"
+            className="w-full bg-amber-500 hover:bg-amber-400 disabled:bg-slate-800 disabled:text-slate-600 text-black font-black text-3xl py-6 rounded-2xl transition-transform hover:scale-[1.01] active:scale-[0.99] shadow-2xl flex items-center justify-center tracking-wide"
           >
-            <span>Open Store & Start Trading</span>
+            {isSimulating ? 'SIMULATING DAY...' : 'OPEN STORE & START TRADING'}
           </button>
-        </footer>
-
+        </div>
+        
       </div>
-
     </div>
   );
 }

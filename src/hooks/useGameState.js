@@ -3,23 +3,17 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "../firebase.config";
 
-// The static stock catalogue containing the wholesale items with UK English spelling and USD costs.
 export const stockCatalogue = [
-  // Tier 1 (Defaults / Basic - 5 items)
   { id: "apple", name: "Crisp Gala Apple", emoji: "🍏", wholesaleCost: 0.40, tierRequired: 1 },
   { id: "cucumber", name: "Organic Cucumber", emoji: "🥒", wholesaleCost: 0.60, tierRequired: 1 },
   { id: "bread", name: "Artisan Sourdough Bread", emoji: "🍞", wholesaleCost: 1.20, tierRequired: 1 },
   { id: "watermelon", name: "Sweet Watermelon Slice", emoji: "🍉", wholesaleCost: 0.80, tierRequired: 1 },
   { id: "toycar", name: "Miniature Toy Car", emoji: "🚗", wholesaleCost: 2.50, tierRequired: 1 },
-  
-  // Tier 2 (Requires Tier 2 - 5 items)
   { id: "cheese", name: "Mature Cheddar Cheese", emoji: "🧀", wholesaleCost: 2.00, tierRequired: 2 },
   { id: "flowers", name: "Spring Flower Bouquet", emoji: "💐", wholesaleCost: 3.50, tierRequired: 2 },
   { id: "coffee", name: "Organic Coffee Beans", emoji: "☕", wholesaleCost: 1.80, tierRequired: 2 },
   { id: "book", name: "Classic Fiction Book", emoji: "📖", wholesaleCost: 5.00, tierRequired: 2 },
   { id: "plant", name: "Potted House Plant", emoji: "🪴", wholesaleCost: 4.50, tierRequired: 2 },
-  
-  // Tier 3 (Requires Tier 3 - 5 items)
   { id: "headphones", name: "Wireless Headphones", emoji: "🎧", wholesaleCost: 15.00, tierRequired: 3 },
   { id: "watch", name: "Smart Fitness Watch", emoji: "⌚", wholesaleCost: 40.00, tierRequired: 3 },
   { id: "sneakers", name: "Premium Running Sneakers", emoji: "👟", wholesaleCost: 75.00, tierRequired: 3 },
@@ -37,15 +31,14 @@ export function useGameState() {
   const [marketingSpendToday, setMarketingSpendToday] = useState(0);
   const [marketingActive, setMarketingActive] = useState(false);
 
-  // Core mathematical game state
   const [gameState, setGameState] = useState({
     currentDay: 1,
     bankBalance: 500,
-    currentTier: 1, // Tier 1: "Market Stall" (Rent: $5/day)
-    inventory: {}, // itemId -> quantity
-    retailPrices: {}, // itemId -> price (e.g. apple -> 0.80)
+    currentTier: 1,
+    inventory: {},
+    retailPrices: {},
     endOfDayReport: null,
-    unlockedProductIds: ["apple", "cucumber", "bread"], // Starting default active items
+    unlockedProductIds: ["apple", "cucumber", "bread"],
     nextProductUnlockAt: 1000,
     pendingProductPicks: 0,
     isGoldenEmporium: false,
@@ -53,16 +46,13 @@ export function useGameState() {
     retainedEarnings: 0
   });
 
-  // Keep track of the results from the most recent day simulated
   const [endOfDayReport, setEndOfDayReport] = useState(null);
 
-  // Derived catalog filtering based on unlocked active products and current tier location limits
   const availableCatalogue = stockCatalogue.filter(
     (item) => (gameState.unlockedProductIds || ["apple", "cucumber", "bread"]).includes(item.id) &&
               item.tierRequired <= gameState.currentTier
   );
 
-  // Sync state from Firestore on user login
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
@@ -90,11 +80,11 @@ export function useGameState() {
             setGameState(loadedState);
             setNeonSignTier(data.neonSignTier ?? 0);
             setMarketingActive(data.marketingActive ?? false);
+            setDifficulty(data.difficulty ?? "Easy"); // Load difficulty
             if (loadedState.endOfDayReport) {
               setEndOfDayReport(loadedState.endOfDayReport);
             }
           } else {
-            // First time play: create initial save
             const defaultState = {
               currentDay: 1,
               bankBalance: 500,
@@ -109,7 +99,7 @@ export function useGameState() {
               isBankDay: false,
               retainedEarnings: 0
             };
-            await setDoc(docRef, defaultState);
+            await setDoc(docRef, { ...defaultState, difficulty: "Easy" });
             setGameState(defaultState);
           }
         } catch (err) {
@@ -119,7 +109,6 @@ export function useGameState() {
           setLoading(false);
         }
       } else {
-        // Reset to initial offline state
         setGameState({
           currentDay: 1,
           bankBalance: 500,
@@ -137,6 +126,7 @@ export function useGameState() {
         setNeonSignTier(0);
         setMarketingSpendToday(0);
         setMarketingActive(false);
+        setDifficulty("Easy");
         setLoading(false);
       }
     });
@@ -144,8 +134,7 @@ export function useGameState() {
     return () => unsubscribe();
   }, []);
 
-  // Save game state directly to cloud helper
-  const saveGameToCloud = useCallback(async (stateToSave, currentUser, activeNeonTier = neonSignTier, activeMarketing = marketingActive) => {
+  const saveGameToCloud = useCallback(async (stateToSave, currentUser, activeNeonTier = neonSignTier, activeMarketing = marketingActive, activeDifficulty = difficulty) => {
     const activeUser = currentUser || user;
     if (!activeUser) return;
     try {
@@ -153,14 +142,53 @@ export function useGameState() {
       await setDoc(docRef, {
         ...stateToSave,
         neonSignTier: activeNeonTier,
-        marketingActive: activeMarketing
+        marketingActive: activeMarketing,
+        difficulty: activeDifficulty
       });
     } catch (err) {
       console.error("Error saving game to cloud:", err);
     }
-  }, [user, neonSignTier, marketingActive]);
+  }, [user, neonSignTier, marketingActive, difficulty]);
 
-  // Buy stock from the Wholesale Market
+  // NEW: Hard Reset Function
+  const resetGame = useCallback(async (newDifficulty = difficulty) => {
+    const defaultState = {
+      currentDay: 1,
+      bankBalance: 500,
+      currentTier: 1,
+      inventory: {},
+      retailPrices: {},
+      endOfDayReport: null,
+      unlockedProductIds: ["apple", "cucumber", "bread"],
+      nextProductUnlockAt: 1000,
+      pendingProductPicks: 0,
+      isGoldenEmporium: false,
+      isBankDay: false,
+      retainedEarnings: 0
+    };
+    
+    setGameState(defaultState);
+    setEndOfDayReport(null);
+    setNeonSignTier(0);
+    setMarketingActive(false);
+    setMarketingSpendToday(0);
+    setDifficulty(newDifficulty);
+
+    if (user) {
+      try {
+        const docRef = doc(db, "saves", user.uid);
+        await setDoc(docRef, {
+          ...defaultState,
+          neonSignTier: 0,
+          marketingActive: false,
+          difficulty: newDifficulty
+        });
+      } catch (err) {
+        console.error("Error resetting game to cloud:", err);
+      }
+    }
+  }, [user, difficulty]);
+
   const buyWholesaleStock = useCallback((itemId, quantity, cost) => {
     if (quantity <= 0) return;
     const totalCost = quantity * cost;
@@ -186,16 +214,11 @@ export function useGameState() {
         retailPrices: updatedPrices
       };
 
-      // Proactively sync state changes
-      if (user) {
-        saveGameToCloud(updatedState, user);
-      }
-
+      if (user) saveGameToCloud(updatedState, user);
       return updatedState;
     });
   }, [user, saveGameToCloud]);
 
-  // Set the listing price for stock
   const setRetailPrice = useCallback((itemId, price) => {
     const numericalPrice = Number(price);
     if (isNaN(numericalPrice) || numericalPrice < 0) return;
@@ -209,15 +232,11 @@ export function useGameState() {
         retailPrices: updatedPrices
       };
 
-      if (user) {
-        saveGameToCloud(updatedState, user);
-      }
-
+      if (user) saveGameToCloud(updatedState, user);
       return updatedState;
     });
   }, [user, saveGameToCloud]);
 
-  // Unlock specific product IDs (manual choice) and reset pending picks
   const unlockSpecificProducts = useCallback((itemIdsArray) => {
     setGameState((prev) => {
       const currentUnlocked = prev.unlockedProductIds || ["apple", "cucumber", "bread"];
@@ -227,28 +246,19 @@ export function useGameState() {
         unlockedProductIds: nextUnlocked,
         pendingProductPicks: 0
       };
-      if (user) {
-        saveGameToCloud(updatedState, user);
-      }
+      if (user) saveGameToCloud(updatedState, user);
       return updatedState;
     });
   }, [user, saveGameToCloud]);
 
-  // Skip expanding catalog choice for non-mandatory stages
   const skipUnlockProducts = useCallback(() => {
     setGameState((prev) => {
-      const updatedState = {
-        ...prev,
-        pendingProductPicks: 0
-      };
-      if (user) {
-        saveGameToCloud(updatedState, user);
-      }
+      const updatedState = { ...prev, pendingProductPicks: 0 };
+      if (user) saveGameToCloud(updatedState, user);
       return updatedState;
     });
   }, [user, saveGameToCloud]);
 
-  // Simulate sales and transition day
   const simulateDay = useCallback(() => {
     setGameState((prev) => {
       const workingInventory = { ...prev.inventory };
@@ -259,7 +269,6 @@ export function useGameState() {
       const feedbackLog = [];
       const itemsSoldThisDay = {};
 
-      // Tier-scaled operating rent and customer traffic parameters
       let fixedCosts = 5;
       let customerVisitsPerItem = 15;
 
@@ -271,20 +280,15 @@ export function useGameState() {
         customerVisitsPerItem = 50;
       }
 
-      // Customer Volume Multiplier Logic
       let multiplier = 1.0 + (0.2 * neonSignTier);
-      if (marketingActive) {
-        multiplier += 0.3;
-      }
+      if (marketingActive) multiplier += 0.3;
       customerVisitsPerItem = Math.floor(customerVisitsPerItem * multiplier);
 
-      // Filter available catalogue at this exact moment
       const currentActiveList = stockCatalogue.filter(
         (item) => (prev.unlockedProductIds || ["apple", "cucumber", "bread"]).includes(item.id) &&
                   item.tierRequired <= prev.currentTier
       );
 
-      // Performance Tracking: capture starting stock before simulation runs
       const startingStock = {};
       currentActiveList.forEach((item) => {
         startingStock[item.id] = prev.inventory[item.id] || 0;
@@ -295,7 +299,6 @@ export function useGameState() {
         const retailPrice = workingRetailPrices[item.id] ?? 0;
 
         if (inStock > 0) {
-          // Verify price configuration warning
           if (retailPrice === 0) {
             feedbackLog.push({
               itemId: item.id,
@@ -312,7 +315,6 @@ export function useGameState() {
           let vipSoldCount = 0;
 
           for (let i = 0; i < customerVisitsPerItem; i++) {
-            // Check if we ran out of stock during the day's visits
             const currentStock = workingInventory[item.id] ?? 0;
             if (currentStock <= 0) {
               feedbackLog.push({
@@ -324,7 +326,6 @@ export function useGameState() {
               break;
             }
 
-            // VIP customer calculation: 10% chance only if Tier 3
             const isVIP = prev.currentTier === 3 && Math.random() < 0.10;
             let willingnessMultiplier;
             
@@ -349,19 +350,14 @@ export function useGameState() {
             const maxWillingness = item.wholesaleCost * willingnessMultiplier;
 
             if (retailPrice <= maxWillingness) {
-              // Complete transaction
               workingInventory[item.id] -= 1;
               totalRevenue += retailPrice;
               dailyCOGS += item.wholesaleCost;
               soldCount += 1;
 
-              if (isVIP) {
-                vipSoldCount += 1;
-              } else if (retailPrice <= maxWillingness * 0.75) {
-                bargainCount += 1;
-              } else {
-                acceptableCount += 1;
-              }
+              if (isVIP) vipSoldCount += 1;
+              else if (retailPrice <= maxWillingness * 0.75) bargainCount += 1;
+              else acceptableCount += 1;
             } else {
               tooExpensiveCount += 1;
             }
@@ -370,44 +366,22 @@ export function useGameState() {
           if (soldCount > 0) {
             itemsSoldThisDay[item.id] = soldCount;
             if (vipSoldCount > 0) {
-              feedbackLog.push({
-                itemId: item.id,
-                emoji: item.emoji,
-                type: "VIP",
-                isVIP: true,
-                message: `👑 VIP customer bought ${item.name} for $${retailPrice.toFixed(2)} with absolute style! (${vipSoldCount} premium sales)`
-              });
+              feedbackLog.push({ itemId: item.id, emoji: item.emoji, type: "VIP", isVIP: true, message: `👑 VIP customer bought ${item.name} for $${retailPrice.toFixed(2)} with absolute style! (${vipSoldCount} premium sales)`});
             }
             if (bargainCount > 0) {
-              feedbackLog.push({
-                itemId: item.id,
-                emoji: item.emoji,
-                type: "Bargain",
-                message: `😍 Customers thought ${item.name} at $${retailPrice.toFixed(2)} was an absolute bargain! (${bargainCount} purchased)`
-              });
+              feedbackLog.push({ itemId: item.id, emoji: item.emoji, type: "Bargain", message: `😍 Customers thought ${item.name} at $${retailPrice.toFixed(2)} was an absolute bargain! (${bargainCount} purchased)`});
             }
             if (acceptableCount > 0) {
-              feedbackLog.push({
-                itemId: item.id,
-                emoji: item.emoji,
-                type: "Acceptable",
-                message: `😊 Customers bought your ${item.name} for $${retailPrice.toFixed(2)} with no complaints. (${acceptableCount} purchased)`
-              });
+              feedbackLog.push({ itemId: item.id, emoji: item.emoji, type: "Acceptable", message: `😊 Customers bought your ${item.name} for $${retailPrice.toFixed(2)} with no complaints. (${acceptableCount} purchased)`});
             }
           }
 
           if (tooExpensiveCount > 0) {
-            feedbackLog.push({
-              itemId: item.id,
-              emoji: item.emoji,
-              type: "Too Expensive",
-              message: `😠 ${tooExpensiveCount} customers walked away because your ${item.name} ($${retailPrice.toFixed(2)}) was too expensive!`
-            });
+            feedbackLog.push({ itemId: item.id, emoji: item.emoji, type: "Too Expensive", message: `😠 ${tooExpensiveCount} customers walked away because your ${item.name} ($${retailPrice.toFixed(2)}) was too expensive!`});
           }
         }
       });
 
-      // Analysis Engine: Generate insights array after customer loop finishes
       const insights = [];
       currentActiveList.forEach((item) => {
         const startQty = startingStock[item.id] || 0;
@@ -415,49 +389,28 @@ export function useGameState() {
 
         if (startQty > 0) {
           if (soldQty === 0) {
-            insights.push({
-              itemId: item.id,
-              name: item.name,
-              emoji: item.emoji,
-              type: "expensive",
-              message: `Customers refused to buy ${item.name}. Your markup is too high for the current market.`
-            });
+            insights.push({ itemId: item.id, name: item.name, emoji: item.emoji, type: "expensive", message: `Customers refused to buy ${item.name}. Your markup is too high for the current market.`});
           } else if (soldQty === startQty) {
-            insights.push({
-              itemId: item.id,
-              name: item.name,
-              emoji: item.emoji,
-              type: "soldout",
-              message: `You completely sold out of ${item.name}! Demand is high—try raising the price tomorrow to maximise profit.`
-            });
+            insights.push({ itemId: item.id, name: item.name, emoji: item.emoji, type: "soldout", message: `You completely sold out of ${item.name}! Demand is high—try raising the price tomorrow to maximise profit.`});
           } else if (soldQty > 0 && soldQty < startQty) {
-            insights.push({
-              itemId: item.id,
-              name: item.name,
-              emoji: item.emoji,
-              type: "steady",
-              message: `${item.name} sold steadily at a fair price. Good job finding the sweet spot!`
-            });
+            insights.push({ itemId: item.id, name: item.name, emoji: item.emoji, type: "steady", message: `${item.name} sold steadily at a fair price. Good job finding the sweet spot!`});
           }
         }
       });
 
-      // Accounting and financial balance updates
       const dailyRevenue = Number(totalRevenue.toFixed(2));
       const roundedCOGS = Number(dailyCOGS.toFixed(2));
       const dailyGrossProfit = Number((dailyRevenue - roundedCOGS).toFixed(2));
       const rentDeducted = fixedCosts;
       const netProfit = Number((dailyGrossProfit - rentDeducted - marketingSpendToday).toFixed(2));
 
-      // Balance gets updated with liquid cash flow (Revenue - Rent)
       const newBalance = Number((prev.bankBalance + dailyRevenue - rentDeducted).toFixed(2));
       const nextDay = prev.currentDay + 1;
 
-      // Milestone / Tier Level Progression check
       let nextTier = prev.currentTier;
       let upgraded = false;
 
-      if (prev.currentTier === 1 && newBalance >= 100) {
+      if (prev.currentTier === 1 && newBalance >= 1000) {
         nextTier = 2;
         upgraded = true;
       } else if (prev.currentTier === 2 && newBalance >= 3000) {
@@ -465,31 +418,21 @@ export function useGameState() {
         upgraded = true;
       }
 
-      if (upgraded) {
-        setHasJustUpgraded(true);
-      }
+      if (upgraded) setHasJustUpgraded(true);
 
-      // Dynamic Product Unlock Check (every $500 milestone starting at 1000)
       let currentNextUnlock = prev.nextProductUnlockAt ?? 1000;
       let picks = prev.pendingProductPicks ?? 0;
       
       if (newBalance >= currentNextUnlock) {
         picks = 3;
-        // Keep incrementing by 500 if they leapfrogged multiple milestones
-        while (newBalance >= currentNextUnlock) {
-          currentNextUnlock += 500;
-        }
+        while (newBalance >= currentNextUnlock) currentNextUnlock += 500;
       }
 
-      // Check for Tier 3 VIP Golden Emporium unlock boolean
       const reachedGoldenEmporium = newBalance >= 3000;
 
-      // Calculate remaining inventory valuation at wholesale cost
       const remainingStockValuation = Object.entries(workingInventory).reduce((total, [itemId, qty]) => {
         const item = stockCatalogue.find((i) => i.id === itemId);
-        if (item && qty > 0) {
-          return total + (qty * item.wholesaleCost);
-        }
+        if (item && qty > 0) return total + (qty * item.wholesaleCost);
         return total;
       }, 0);
 
@@ -507,10 +450,9 @@ export function useGameState() {
         remainingStockValuation: Number(remainingStockValuation.toFixed(2)),
         feedback: feedbackLog,
         itemsSold: itemsSoldThisDay,
-        insights // Export the generated insights array
+        insights 
       };
 
-      // Bank trigger: checks if the day that just concluded is the end of Sunday (Day 7, 14, 21, etc.)
       const isBankDayTrigger = (prev.currentDay % 7 === 0);
 
       const updatedState = {
@@ -527,13 +469,9 @@ export function useGameState() {
         retainedEarnings: prev.retainedEarnings ?? 0
       };
 
-      // Set the report for display in the component
       setEndOfDayReport(reportData);
 
-      // Auto-save to cloud
-      if (user) {
-        saveGameToCloud(updatedState, user, neonSignTier, false);
-      }
+      if (user) saveGameToCloud(updatedState, user, neonSignTier, false, difficulty);
 
       return updatedState;
     });
@@ -542,15 +480,12 @@ export function useGameState() {
     setMarketingSpendToday(0);
   }, [user, saveGameToCloud, difficulty, neonSignTier, marketingActive, marketingSpendToday]);
 
-  const closeReport = useCallback(() => {
-    setEndOfDayReport(null);
-  }, []);
+  const closeReport = useCallback(() => setEndOfDayReport(null), []);
 
-  // Process the weekly deposit at the Royal Savings Bank
   const processWeeklyDeposit = useCallback((floatAmount) => {
     setGameState((prev) => {
       const balanceToDeposit = prev.bankBalance - floatAmount;
-      const depositAmount = balanceToDeposit; // can be negative, which acts as a withdrawal
+      const depositAmount = balanceToDeposit; 
 
       const updatedState = {
         ...prev,
@@ -559,22 +494,18 @@ export function useGameState() {
         isBankDay: false
       };
 
-      if (user) {
-        saveGameToCloud(updatedState, user);
-      }
-
+      if (user) saveGameToCloud(updatedState, user);
       return updatedState;
     });
   }, [user, saveGameToCloud]);
 
-  // Purchase/Upgrade Neon Sign
   const upgradeNeonSign = useCallback(() => {
     setGameState((prev) => {
       let cost = 0;
       if (neonSignTier === 0) cost = 150;
       else if (neonSignTier === 1) cost = 300;
       else if (neonSignTier === 2) cost = 600;
-      else return prev; // Max tier reached
+      else return prev; 
 
       if (prev.bankBalance < cost) {
         alert(`Insufficient funds to upgrade the Neon Sign! Needs $${cost}`);
@@ -587,14 +518,11 @@ export function useGameState() {
         bankBalance: Number((prev.bankBalance - cost).toFixed(2))
       };
       setNeonSignTier(nextTier);
-      if (user) {
-        saveGameToCloud(updatedState, user, nextTier, marketingActive);
-      }
+      if (user) saveGameToCloud(updatedState, user, nextTier, marketingActive);
       return updatedState;
     });
   }, [user, saveGameToCloud, neonSignTier, marketingActive]);
 
-  // Launch Flyer Campaign
   const launchMarketing = useCallback(() => {
     setGameState((prev) => {
       if (prev.bankBalance < 10) {
@@ -607,9 +535,7 @@ export function useGameState() {
       };
       setMarketingActive(true);
       setMarketingSpendToday(10);
-      if (user) {
-        saveGameToCloud(updatedState, user, neonSignTier, true);
-      }
+      if (user) saveGameToCloud(updatedState, user, neonSignTier, true);
       return updatedState;
     });
   }, [user, saveGameToCloud, neonSignTier]);
@@ -624,6 +550,7 @@ export function useGameState() {
     buyWholesaleStock,
     setRetailPrice,
     simulateDay,
+    resetGame, // EXPORTED RESET FUNCTION
     endOfDayReport,
     closeReport,
     hasJustUpgraded,
@@ -635,8 +562,6 @@ export function useGameState() {
     user,
     difficulty,
     setDifficulty,
-    
-    // Marketing & Upgrades Exports
     neonSignTier,
     setNeonSignTier,
     marketingActive,

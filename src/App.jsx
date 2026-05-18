@@ -2,7 +2,6 @@ import React from "react";
 import { useGameState } from "./hooks/useGameState";
 import LoginScreen from "./components/LoginScreen";
 import GameDashboard from "./components/GameDashboard";
-import EndOfDayReport from "./components/EndOfDayReport";
 import { Sparkles, AlertCircle } from "lucide-react";
 import "./index.css";
 
@@ -30,7 +29,11 @@ function App() {
     neonSignTier,
     marketingActive,
     upgradeNeonSign,
-    launchMarketing
+    launchMarketing,
+    resetGame,
+    isSimulating,
+    activeCustomer,
+    liveInventory
   } = useGameState();
 
   // 1. Beautiful Premium Loader
@@ -70,6 +73,7 @@ function App() {
             buyWholesaleStock={buyWholesaleStock}
             setRetailPrice={setRetailPrice}
             simulateDay={simulateDay}
+            resetGame={resetGame}
             user={user}
             endOfDayReport={endOfDayReport}
             closeReport={closeReport}
@@ -86,6 +90,9 @@ function App() {
             marketingActive={marketingActive}
             upgradeNeonSign={upgradeNeonSign}
             launchMarketing={launchMarketing}
+            isSimulating={isSimulating}
+            activeCustomer={activeCustomer}
+            liveInventory={liveInventory}
           />
         </>
       )}

@@ -16,21 +16,28 @@ export function generateCustomerPhrase(reaction, itemName) {
       "An absolute steal for this splendid [ITEM]!",
       "I'm chuffed to bits with this cheap [ITEM]!",
       "Brilliant! The price on this [ITEM] is marvellous!",
-      "Absolutely smashing! I will definitely take the [ITEM]!"
+      "Absolutely smashing! I will definitely take the [ITEM]!",
+      "Splendid! This [ITEM] is exceptionally cheap today!",
+      "Oh wow! What a spectacular deal for a [ITEM]!"
     ],
     acceptable: [
       "This [ITEM] looks rather lovely.",
       "A fair price for this [ITEM], indeed.",
       "I suppose I will purchase this [ITEM] today.",
       "A very decent [ITEM] for a sensible price.",
-      "It is quite a nice [ITEM]. I shall take it."
+      "It is quite a nice [ITEM]. I shall take it.",
+      "Exactly what I was looking for! A lovely [ITEM]!",
+      "This [ITEM] matches my shopping list perfectly!"
     ],
     expensive: [
-      "Bloody hell! That is way too dear for this [ITEM]!",
+      "Goodness gracious! That is way too dear for this [ITEM]!",
       "Who on earth would pay that much for a simple [ITEM]?!",
       "Goodness me, I shall pass on this overpriced [ITEM].",
       "You must be having a laugh with the price of this [ITEM]!",
-      "Crikey! I cannot possibly justify buying this [ITEM]."
+      "Crikey! I cannot possibly justify buying this [ITEM].",
+      "Oh dear! That is a bit too pricey for my pocket!",
+      "My word! That [ITEM] costs a pretty penny!",
+      "Golly gosh! I can't afford that for a [ITEM]!"
     ],
     VIP: [
       "Outstanding! Only the finest [ITEM] for a VIP!",

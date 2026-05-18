@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { PerspectiveCamera, Text } from '@react-three/drei';
+import { PerspectiveCamera, Box } from '@react-three/drei';
 import * as THREE from 'three';
 import Scooter3D from './Scooter3D';
 import Customer3D from './Customer3D';
@@ -10,12 +10,16 @@ const SHOP_NAMES = ['Florist', 'Repairs', 'Doctor', 'Bakery', 'Hardware', 'Post 
 const NPC_COLOURS = ['#f87171', '#60a5fa', '#c084fc', '#fbbf24', '#2dd4bf'];
 const REACTIONS = ['neutral', 'bargain', 'acceptable', 'expensive'];
 
+// Colour-coded sign boards to replace remotely-loaded Text glyphs
+const SIGN_COLOURS = ['#f43f5e', '#f59e0b', '#22c55e', '#3b82f6', '#a855f7', '#ec4899'];
+
 export default function Town3DWorld({ direction, onTransitionComplete }) {
   const [lightState, setLightState] = useState('red');
   const playerScooterRef = useRef();
   const crossTrafficRef = useRef();
   const pedestriansRef = useRef([]);
   const journey = useRef({ phase: 'approach' });
+  const hasTransitioned = useRef(false);
 
   const npcs = useMemo(() => {
     return Array.from({ length: 4 }).map((_, i) => ({
@@ -31,6 +35,18 @@ export default function Town3DWorld({ direction, onTransitionComplete }) {
     return () => clearTimeout(timer);
   }, []);
 
+  // Safety net: force-fire onTransitionComplete after 15 seconds if the
+  // scene stalls for any reason (context loss, offline asset failure, etc.)
+  useEffect(() => {
+    const safetyTimeout = setTimeout(() => {
+      if (!hasTransitioned.current) {
+        hasTransitioned.current = true;
+        onTransitionComplete();
+      }
+    }, 15000);
+    return () => clearTimeout(safetyTimeout);
+  }, [onTransitionComplete]);
+
   useFrame((state, delta) => {
     if (playerScooterRef.current) {
       const p = playerScooterRef.current.position;
@@ -45,7 +61,12 @@ export default function Town3DWorld({ direction, onTransitionComplete }) {
         }
       } else if (journey.current.phase === 'depart') {
         p.z = THREE.MathUtils.lerp(p.z, endZ, 0.03);
-        if (Math.abs(p.z - endZ) < 1.0) onTransitionComplete();
+        if (Math.abs(p.z - endZ) < 1.0) {
+          if (!hasTransitioned.current) {
+            hasTransitioned.current = true;
+            onTransitionComplete();
+          }
+        }
       }
     }
 
@@ -91,6 +112,7 @@ export default function Town3DWorld({ direction, onTransitionComplete }) {
         const zPos = -5 - (i * 5);
         const rotationY = isLeft ? Math.PI / 2 : -Math.PI / 2;
         const bldgColor = NPC_COLOURS[i % NPC_COLOURS.length];
+        const signColour = SIGN_COLOURS[i % SIGN_COLOURS.length];
 
         return (
           <group key={i} position={[xPos, 0, zPos]} rotation={[0, rotationY, 0]}>
@@ -102,9 +124,16 @@ export default function Town3DWorld({ direction, onTransitionComplete }) {
               <boxGeometry args={[1.5, 2.5, 0.1]} />
               <meshStandardMaterial color="#1e293b" />
             </mesh>
-            <Text position={[0, 3.5, 2.05]} fontSize={0.6} color="#ffffff" outlineWidth={0.05} outlineColor="#000000">
-              {name}
-            </Text>
+            {/* Solid coloured sign board replacing remotely-loaded <Text> */}
+            <mesh position={[0, 3.5, 2.05]}>
+              <boxGeometry args={[2.5, 0.6, 0.08]} />
+              <meshStandardMaterial
+                color={signColour}
+                emissive={signColour}
+                emissiveIntensity={0.3}
+                roughness={0.3}
+              />
+            </mesh>
           </group>
         );
       })}
