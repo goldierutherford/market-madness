@@ -73,11 +73,10 @@ export default function GameDashboard({
       const feedbackList = endOfDayReport.feedback || [];
       let queuedCustomers = [];
 
-      // Guarantee a bustling shop with exactly 5 visual customers
-      for (let i = 0; i < 5; i++) {
+      // Guarantee exactly 6 visual customers per day
+      for (let i = 0; i < 6; i++) {
         let fb = feedbackList[i % feedbackList.length];
         
-        // Fallback if the array is completely empty
         if (!fb) {
           fb = { type: "Acceptable", emoji: "🛒", message: "Just browsing, thanks!" };
         }
@@ -101,7 +100,8 @@ export default function GameDashboard({
           itemId: fb.itemId,
           text,
           isVIP: fb.isVIP || fb.type === "VIP",
-          isChildPair: Math.random() < 0.10 // 10% chance to trigger the joke sequence
+          // The 4th customer (index 3) is always the joke sequence
+          isChildPair: i === 3 
         });
       }
 
@@ -121,21 +121,27 @@ export default function GameDashboard({
                 if (updated[nextCustomer.itemId] > 0) updated[nextCustomer.itemId] -= 1;
                 return updated;
               });
-            }, 1500); // Deduct item from shelf exactly when they reach the counter
+            }, 1500); 
           }
 
           currentIdx++;
 
-          // Exact animation physics timings:
-          // Standard: 1.5s walk in + 1.5s wait + 3.0s walk out = 6.0s
-          // Joke Sequence: 1.5s walk in + 11.0s wait + 3.0s walk out = 15.5s
-          const totalAnimationTime = nextCustomer.isChildPair ? 15500 : 6000;
+          // Physics timings breakdown:
+          // Transaction Time (Walk to counter + stand there): Joke = 12.5s, Standard = 3.0s
+          const transactionTime = nextCustomer.isChildPair ? 12500 : 3000;
+          const walkOutTime = 3000;
           
-          // Overlap the next spawn by 1.5 seconds so the queue flows naturally
-          // If it's the last customer, overlap is 0 so the day ends precisely as they exit.
-          const overlapTime = isLastCustomer ? 0 : 1500;
+          let waitDuration;
           
-          setTimeout(runCustomerQueue3D, totalAnimationTime - overlapTime);
+          if (isLastCustomer) {
+            // Cut the timer the exact millisecond the transaction ends so the shopkeeper moves immediately
+            waitDuration = transactionTime;
+          } else {
+            // Standard overlap: Start the next customer while the current one is walking out
+            waitDuration = (transactionTime + walkOutTime) - 1500;
+          }
+          
+          setTimeout(runCustomerQueue3D, waitDuration);
         } else {
           setActiveCustomer(null);
           setIsSimulating(false);
